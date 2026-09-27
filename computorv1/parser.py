@@ -1,9 +1,13 @@
 import re
 
 from .fraction import Fraction, from_decimal
-from .number import MAX_VALUE, MIN_VALUE
 
 MAX_DEGREE = 10
+
+# Les calculs sont exacts, mais l'affichage passe par des floats : hors de ces bornes,
+# b², -Δ / 4a ou -b / 2a dépasseraient leur capacité, environ 1.8e308.
+MAX_VALUE = Fraction(10**100)
+MIN_VALUE = Fraction(1, 10**100)
 
 # Au-delà, une puissance exacte serait trop longue à calculer : 10^999999999 a un milliard
 # de chiffres.

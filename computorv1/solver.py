@@ -1,4 +1,5 @@
-from .number import real, sqrt
+from .display import real
+from .fraction import sqrt
 
 
 # Renvoie un tuple (cas, solutions, lignes de calcul) : ("linear", [x], steps).
@@ -43,8 +44,7 @@ def quadratic(p, name):
         steps.append("%s = -b / 2a = %s / %s = %s" % (name, real(-b), wrap(2 * a), real(x)))
         return "double", [x], steps
     if delta > 0:
-        x1 = (-b + sqrt(delta)) / (2 * a)
-        x2 = (-b - sqrt(delta)) / (2 * a)
+        x1, x2 = distinct_roots(a, b, c, sqrt(delta))
         steps.append(
             "%s1 = (-b + √Δ) / 2a = (%s + √%s) / %s = %s"
             % (name, real(-b), real(delta), wrap(2 * a), real(x1))
@@ -59,6 +59,18 @@ def quadratic(p, name):
     steps.append("-b / 2a = %s / %s = %s" % (real(-b), wrap(2 * a), real(re)))
     steps.append("√-Δ / 2a = √%s / %s = %s" % (real(-delta), wrap(2 * a), real(im)))
     return "negative", [(re, im), (re, -im)], steps
+
+
+# formule: https://en.wikipedia.org/w/index.php?title=Quadratic_formula&oldid=1376700315#Numerical_calculation
+# √Δ approché : quand b ≈ ±√Δ, -b ± √Δ efface ses premiers chiffres, et avec eux ceux qui
+# sont justes. La solution concernée vient alors de x1 · x2 = c / a, sans soustraction.
+# 10⁻²⁰x² + x + 1 = 0 donnait x1 = -49960 au lieu de -1.
+def distinct_roots(a, b, c, root):
+    if b > 0:
+        x2 = (-b - root) / (2 * a)
+        return c / (a * x2), x2
+    x1 = (-b + root) / (2 * a)
+    return x1, c / (a * x1)
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Quadratic_function&oldid=1360283093#Vertex

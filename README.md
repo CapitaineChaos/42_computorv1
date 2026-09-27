@@ -92,7 +92,7 @@ says so: `(b is the unknown of the equation, not the coefficient b)`.
 - **Negative exponents** are read, and refused only if a negative degree is left after
   reduction: `x^-1 + x = x^-1` is `x = 0`.
 - **Magnitude**: a number or a reduced coefficient above `1e100` or, except zero, below
-  `1e-100` is refused (`MAX_VALUE`, `MIN_VALUE` in `number.py`). The calculation is exact
+  `1e-100` is refused (`MAX_VALUE`, `MIN_VALUE` in `parser.py`). The calculation is exact
   at any size, but results are printed through floats, which stop at about `1.8e308`:
   within those bounds, `b²`, `-Δ / 4a` or `-b / 2a` always fit.
 - **Exponent of a number**: above `1000` (`MAX_EXPONENT` in `parser.py`) it is refused.
@@ -142,12 +142,18 @@ article *Rational number*: `a/b + c/d = (ad + bc) / bd`, `a/b × c/d = ac / bd`,
 `a/b < c/d` iff `ad < bc`... A number typed with a point is a decimal fraction: `9.3`
 is `93/10` (`from_decimal`).
 
-**Square root** (`sqrt` in `number.py`). The only step that can leave the fractions:
-`√(p/q)` is rational if and only if `p` and `q` are perfect squares, then it is exact:
-`√(9/4) = 3/2`. Otherwise it is irrational and cannot be written exactly in any form.
-It is then a float with 15 decimals: `isqrt` finds the integer square root by binary
-search, and `√y = isqrt(y × 10³⁰) / 10¹⁵`. The solutions computed from it are floats too,
-and they are the only approximate numbers in the output.
+**Square root** (`sqrt` in `fraction.py`). The only step that can leave the fractions.
+`√(p/q) = √(pq) / q`, rational if and only if `pq` is a perfect square, then exact:
+`√(9/4) = √36 / 4 = 3/2`. Otherwise it is irrational and cannot be written exactly in
+any form. It is then a float: `isqrt` finds the integer square root by binary search,
+and `√(pq) = isqrt(pq × 10³⁰) / 10¹⁵`. As `pq ≥ 1`, at least 15 significant digits are
+right, however small the number. The solutions computed from it are floats too, and they
+are the only approximate numbers in the output.
+
+**Two distinct solutions** (`distinct_roots` in `solver.py`). With `√Δ` approximate,
+`-b + √Δ` loses its correct digits when `b ≈ √Δ`: the first digits cancel, and only the
+error is left. `10⁻²⁰x² + x + 1 = 0` gave `x1 = -49960` instead of `-1`. That solution is
+computed from the other one with `x1 · x2 = c / a` instead, which subtracts nothing.
 
 **Printing.** A fraction is printed as a decimal with at most 6 decimals. When its
 decimals never end, that is when the denominator has a prime factor other than 2 and 5,
@@ -185,8 +191,8 @@ A comment above a function gives its source:
   `Fraction.__float__` (CPython `numbers.py`), `colorize` (Wikipedia, ANSI escape codes).
 - `# formule: URL`: the function applies that formula.
   Each operation of `Fraction` (Wikipedia, *Rational number*), `from_decimal`,
-  `sqrt` (a square root is rational iff both terms of the fraction are squares;
-  `isqrt(y × 10³⁰) / 10¹⁵`), `terminates` (decimals end iff the denominator has only 2
+  `sqrt` (`√(p/q) = √(pq) / q`, rational iff `pq` is a square;
+  `isqrt(y × 10³⁰) / 10¹⁵`), `distinct_roots` (`x1 · x2 = c / a`), `terminates` (decimals end iff the denominator has only 2
   and 5 as prime factors), `multiply_factors` and `read_number`
   (`xᵃ · xᵇ = xᵃ⁺ᵇ`), `linear`, `quadratic`, `vertex`.
 - `# doc: URL`: the function relies on the Python behaviour documented there.
@@ -205,9 +211,8 @@ computor                 entry point, turns a crash into exit status 70
 computorv1/cli.py        argument or stdin, exit status
 computorv1/parser.py     check, normalize, read, reduce
 computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
-computorv1/display.py    output text and colours
-computorv1/fraction.py   exact fractions
-computorv1/number.py     square root, number formatting
+computorv1/display.py    output text, number formatting, colours
+computorv1/fraction.py   exact fractions, square root
 tests/test_computor.py   unittest suite
 tests/corpus.py          inputs taken from 456 GitHub repositories of 42 students
 ```

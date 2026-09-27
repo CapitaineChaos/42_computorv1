@@ -12,8 +12,8 @@ from os.path import abspath, dirname, join
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from computorv1.cli import main  # noqa: E402
-from computorv1.fraction import Fraction, from_decimal, gcd  # noqa: E402
-from computorv1.number import fmt, fraction, sqrt, terminates  # noqa: E402
+from computorv1.display import fmt, fraction, terminates  # noqa: E402
+from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
 from computorv1.parser import ComputorError, parse  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
 
@@ -198,6 +198,14 @@ class FreeForm(unittest.TestCase):
         self.assertTrue(out.endswith("x1 = 0\nx2 = 2\n"))
         _, out, _ = run("9x^2 = 4")
         self.assertTrue(out.endswith("x1 = 2/3 ≈ 0.666667\nx2 = -2/3 ≈ -0.666667\n"))
+
+    def test_irrational_roots_precision(self):
+        # -b + √Δ avec b ≈ √Δ : x1 valait -49960 au lieu de -1.
+        _, out, _ = run("10^-20 x^2 + x + 1 = 0")
+        self.assertTrue(out.endswith("x1 = -1\nx2 = -100000000000000000000\n"))
+        # √Δ à 15 décimales fixes valait 0 : 15 chiffres significatifs maintenant.
+        _, out, _ = run("x^2 - 2*10^-40 = 0")
+        self.assertTrue(out.endswith("x1 = 1.41421e-20\nx2 = -1.41421e-20\n"))
 
 
 class Students42(unittest.TestCase):

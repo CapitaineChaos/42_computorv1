@@ -3,6 +3,9 @@
 # Avec un float, le résultat est un float : c'est le cas des solutions calculées avec une
 # racine carrée irrationnelle.
 
+# Chiffres significatifs d'une racine carrée irrationnelle.
+DIGITS = 15
+
 
 # code: https://en.wikipedia.org/w/index.php?title=Euclidean_algorithm&oldid=1375335874#Implementations
 # La dernière ligne est « return abs(a) », comme l'article le demande quand a ou b peut
@@ -125,3 +128,31 @@ class Fraction:
     # l'est pas.
     def __float__(self):
         return int(self.numerator) / int(self.denominator)
+
+
+# code: https://en.wikipedia.org/w/index.php?title=Integer_square_root&oldid=1374012916#Algorithm_using_binary_search
+def isqrt(y):
+    L = 0
+    R = y + 1
+
+    while L != R - 1:
+        M = (L + R) // 2
+        if M * M <= y:
+            L = M
+        else:
+            R = M
+
+    return L
+
+
+# formule: https://en.wikipedia.org/w/index.php?title=Square_root&oldid=1370227640#Properties_and_uses
+# formule: https://en.wikipedia.org/w/index.php?title=Integer_square_root&oldid=1374012916#Introductory_remark
+# √(p/q) = √(pq) / q. Rationnelle si et seulement si pq est un carré, p et q n'ayant pas de
+# facteur commun : √(9/4) = 6/4 = 3/2, exacte. Sinon irrationnelle, donnée en float :
+# √(pq) = isqrt(pq × 10³⁰) / 10¹⁵, et pq ≥ 1 garantit au moins 15 chiffres justes.
+def sqrt(y):
+    n = y.numerator * y.denominator
+    root = isqrt(n)
+    if root * root == n:
+        return Fraction(root, y.denominator)
+    return isqrt(n * 100**DIGITS) / (y.denominator * 10**DIGITS)
