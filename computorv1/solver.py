@@ -1,11 +1,11 @@
 from collections import namedtuple
 
-from .number import EPSILON, real, sqrt
+from .number import real, sqrt
 
 Solution = namedtuple("Solution", "kind roots steps")
 
 
-def solve(p, margins, name):
+def solve(p, name):
     degree = len(p) - 1
     if degree < 0:
         return Solution("all", [], [])
@@ -14,7 +14,7 @@ def solve(p, margins, name):
     if degree == 1:
         return linear(p, name)
     if degree == 2:
-        return quadratic(p, margins, name)
+        return quadratic(p, name)
     return Solution("high", [], [])
 
 
@@ -31,17 +31,17 @@ def linear(p, name):
 
 # formule: https://en.wikipedia.org/w/index.php?title=Quadratic_formula&oldid=1376700315
 # formule: https://en.wikipedia.org/w/index.php?title=Quadratic_equation&oldid=1368768952#Discriminant
-def quadratic(p, margins, name):
+# Δ est exact, le cas se choisit sans tolérance. Seul √Δ peut être irrationnel : il est
+# alors un float, et les solutions qui en dépendent aussi.
+def quadratic(p, name):
     c, b, a = p
     delta = b * b - 4 * a * c
-    if abs(delta) <= delta_margin(p, margins):
-        delta = 0.0
     steps = [
         "a = %s, b = %s, c = %s" % (real(a), real(b), real(c)),
         "Δ = b² - 4ac = %s² - 4 * %s * %s = %s" % (wrap(b), wrap(a), wrap(c), real(delta)),
         vertex(b, a, delta),
     ]
-    if delta == 0.0:
+    if delta == 0:
         x = -b / (2 * a)
         steps.append("%s = -b / 2a = %s / %s = %s" % (name, real(-b), wrap(2 * a), real(x)))
         return Solution("double", [x], steps)
@@ -61,7 +61,7 @@ def quadratic(p, margins, name):
     im = sqrt(-delta) / (2 * a)
     steps.append("-b / 2a = %s / %s = %s" % (real(-b), wrap(2 * a), real(re)))
     steps.append("√-Δ / 2a = √%s / %s = %s" % (real(-delta), wrap(2 * a), real(im)))
-    return Solution("negative", [complex(re, im), complex(re, -im)], steps)
+    return Solution("negative", [(re, im), (re, -im)], steps)
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Quadratic_function&oldid=1360283093#Vertex
@@ -70,17 +70,6 @@ def vertex(b, a, delta):
     k = -delta / (4 * a)
     extremum = "minimum" if a > 0 else "maximum"
     return "vertex = (-b / 2a, -Δ / 4a) = (%s, %s), %s" % (real(h), real(k), extremum)
-
-
-# Erreur possible de b² - 4ac. Héritée : a, b et c peuvent chacun être faux de leur marge,
-# le pire écart de b² est donc (|b| + mb)² - b², celui de ac (|a| + ma)(|c| + mc) - |ac|.
-# Arrondis : b * b, 4 * a * c et la soustraction.
-def delta_margin(p, margins):
-    c, b, a = p
-    mc, mb, ma = margins
-    inherited = (abs(b) + mb) ** 2 - b * b + 4 * ((abs(a) + ma) * (abs(c) + mc) - abs(a * c))
-    rounding = 2 * EPSILON * (b * b + 4 * abs(a * c))
-    return inherited + rounding
 
 
 def wrap(x):

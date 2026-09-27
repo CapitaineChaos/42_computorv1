@@ -12,13 +12,15 @@ from os.path import abspath, dirname, join
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from computorv1.cli import main  # noqa: E402
+from computorv1.fraction import Fraction, gcd  # noqa: E402
 from computorv1.number import fmt, fraction, sqrt, terminates  # noqa: E402
 from computorv1.parser import ComputorError, parse  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
 
 
+# Coefficients exacts convertis en float, pour comparer aux listes du corpus.
 def reduced(source):
-    return parse(source)[0]
+    return [float(c) for c in parse(source)[0]]
 
 
 def run(*argv):
@@ -128,8 +130,8 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("B^2 = B"), [0.0, -1.0, 1.0])
 
     def test_unknown_name(self):
-        self.assertEqual(parse("3b + 1 = 0")[2], "b")
-        self.assertEqual(parse("1 = 2")[2], "X")
+        self.assertEqual(parse("3b + 1 = 0")[1], "b")
+        self.assertEqual(parse("1 = 2")[1], "X")
         _, out, _ = run("b^2 - 1 = 0")
         self.assertTrue(out.startswith("Reduced form: -1 * b^0 + 0 * b^1 + 1 * b^2 = 0\n"))
         self.assertIn("  b1 = (-b + √Δ) / 2a", out)
@@ -143,9 +145,9 @@ class FreeForm(unittest.TestCase):
     def test_numeric_powers(self):
         self.assertEqual(reduced("-2^2 + 3x = 0"), [-4.0, 3.0])
         self.assertEqual(reduced("-22^2 = 484x"), [-484.0, -484.0])
-        self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 3.1**2])
+        self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 9.61])
         self.assertEqual(reduced("-2^-3 + 3x + 2x = 0"), [-0.125, 5.0])
-        for source in ("2^0.5 = x", "0^-1 = 1", "10^400 = x"):
+        for source in ("2^0.5 = x", "0^-1 = 1", "10^400 = x", "1^1001 = x"):
             with self.assertRaises(ComputorError, msg=source):
                 parse(source)
 
@@ -175,20 +177,27 @@ class FreeForm(unittest.TestCase):
         with self.assertRaises(ComputorError):
             parse("1 * X^-1 + 1 * X^0 = 0")
 
-    def test_float_noise_cancels(self):
+    def test_exact_arithmetic(self):
         self.assertEqual(reduced("0.1 * x + 0.2 * x = 0.3 * x"), [])
         self.assertEqual(reduced("x^2 + 0.1 * x + 0.2 * x = 0.3 * x"), [0.0, 0.0, 1.0])
 
     def test_close_values_stay_different(self):
-        self.assertEqual(reduced("x = 1.0000000001 * x"), [0.0, 1 - 1.0000000001])
+        self.assertEqual(parse("x = 1.0000000001 * x")[0], [0, Fraction(-1, 10**10)])
         _, out, _ = run("x^2 + 2x + 0.9999999999 = 0")
         self.assertIn("the two solutions are", out)
 
-    def test_float_noise_in_delta(self):
+    def test_exact_delta(self):
         for source in ("x^2 + 0.2x + 0.01 = 0", "x^2 + 10.3x - 10.1x + 0.01 = 0"):
             _, out, _ = run(source)
             self.assertIn("Discriminant is zero", out, source)
             self.assertIn(" = 0\n  vertex = (-b / 2a, -Δ / 4a) = (-0.1, 0), minimum\n", out)
+
+    def test_exact_roots(self):
+        # Avec des floats, √36 et 6 s'annulaient mal : x1 valait 1.4803e-16 au lieu de 0.
+        _, out, _ = run("-3x^2 = -6x")
+        self.assertTrue(out.endswith("x1 = 0\nx2 = 2\n"))
+        _, out, _ = run("9x^2 = 4")
+        self.assertTrue(out.endswith("x1 = 2/3 ≈ 0.666667\nx2 = -2/3 ≈ -0.666667\n"))
 
 
 class Students42(unittest.TestCase):
@@ -288,7 +297,7 @@ class EntryPoint(unittest.TestCase):
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
             solver = join(copy, "computorv1", "solver.py")
             source = open(solver).read()
-            header = "def solve(p, margins, name):"
+            header = "def solve(p, name):"
             open(solver, "w").write(
                 source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )
@@ -353,17 +362,33 @@ class Streams(unittest.TestCase):
 
 class Number(unittest.TestCase):
     def test_sqrt(self):
-        self.assertEqual(fmt(sqrt(2)), "1.414214")
-        self.assertEqual(sqrt(0.25), 0.5)
-        self.assertEqual(sqrt(1e20), 1e10)
+        self.assertEqual(fmt(sqrt(Fraction(2))), "1.414214")
+        self.assertEqual(sqrt(Fraction(1, 4)), Fraction(1, 2))
+        self.assertEqual(sqrt(Fraction(10**20)), Fraction(10**10))
+        self.assertIsInstance(sqrt(Fraction(9, 2)), float)
 
     def test_fraction(self):
-        self.assertEqual(fraction(-0.2), (-1, 5))
-        self.assertEqual(fraction(1 / 3), (1, 3))
-        self.assertEqual(fraction(3.0), (3, 1))
-        self.assertIsNone(fraction(sqrt(2)))
+        self.assertEqual(fraction(Fraction("-0.2")), (-1, 5))
+        self.assertEqual(fraction(Fraction(1, 3)), (1, 3))
+        self.assertIsNone(fraction(Fraction(1, 10001)))
+        self.assertIsNone(fraction(sqrt(Fraction(2))))
         self.assertTrue(terminates(40))
         self.assertFalse(terminates(12))
+
+    def test_exact(self):
+        self.assertEqual(Fraction("0.1") + Fraction("0.2"), Fraction("0.3"))
+        self.assertEqual(Fraction("9.3"), Fraction(93, 10))
+        self.assertEqual(Fraction(1, 3) * 3, 1)
+        self.assertEqual(Fraction(2) ** -3, Fraction(1, 8))
+        self.assertEqual(Fraction(6, -4), Fraction(-3, 2))
+        self.assertEqual(1 - Fraction(1, 3), Fraction(2, 3))
+        self.assertTrue(Fraction(-1, 3) < 0 < Fraction(1, 10**100))
+        self.assertIsInstance(Fraction(1, 2) + 0.5, float)
+
+    def test_gcd(self):
+        self.assertEqual(gcd(1071, 462), 21)
+        self.assertEqual(gcd(6, -4), 2)
+        self.assertEqual(gcd(0, 5), 5)
 
     def test_fmt(self):
         self.assertEqual(fmt(4.0), "4")

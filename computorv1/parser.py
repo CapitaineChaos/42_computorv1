@@ -1,8 +1,13 @@
 import re
 
-from .number import EPSILON, MAX_VALUE, MIN_VALUE
+from .fraction import Fraction
+from .number import MAX_VALUE, MIN_VALUE
 
 MAX_DEGREE = 10
+
+# Au-delà, une puissance exacte serait trop longue à calculer : 10^999999999 a un milliard
+# de chiffres.
+MAX_EXPONENT = 1000
 
 # Étape 1, un seul '=' avec deux côtés non vides : " 3x + 1 = 4 " -> ('3x + 1 ', '4 ')
 SIDES = re.compile(r"\s*([^=\s][^=]*)=\s*([^=\s][^=]*)")
@@ -90,10 +95,9 @@ def parse(source):
     check_characters(source)
     left_terms = read_terms(normalize(left))
     right_terms = read_terms(normalize(right))
-    coefficients, margins = add_terms(left_terms, right_terms)
+    coefficients = add_terms(left_terms, right_terms)
     name = unknown_name(source)
-    p, margins = reduce(coefficients, margins, name)
-    return p, margins, name
+    return reduce(coefficients, name), name
 
 
 # Sans lettre, "1 = 2", l'inconnue garde le nom du sujet.
@@ -165,20 +169,16 @@ def read_term(term):
     sign = term[0]
     if sign not in "+-":
         raise ComputorError("missing sign before the term", 0, term)
-    coefficient, degree, roundings = multiply_factors(term)
+    coefficient, degree = multiply_factors(term)
     if sign == "-":
         coefficient = -coefficient
-    return coefficient, degree, roundings
+    return coefficient, degree
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
-# Nombre d'arrondis du coefficient, pour sa marge d'erreur : par nombre, un à la lecture
-# et un à la multiplication ; une puissance n multiplie par n l'erreur du nombre, plus un
-# arrondi : "0.1^3 * X" -> 6.
 def multiply_factors(term):
-    coefficient = 1.0
+    coefficient = Fraction(1)
     degree = 0
-    roundings = 0
     position = 1
     for piece in term[1:].split("*"):
         if piece[:1] in ("+", "-"):
@@ -195,76 +195,49 @@ def multiply_factors(term):
         number, number_exponent, exponent = factor.groups()
         if number is not None:
             coefficient = coefficient * read_number(number, number_exponent, position, term)
-            roundings = roundings + 2
-            if number_exponent is not None:
-                roundings = roundings + abs(int(number_exponent)) + 1
         else:
             degree = degree + int(exponent)
         position = position + len(piece) + 1
     check_magnitude(coefficient, 1, term)
-    return coefficient, degree, roundings
+    return coefficient, degree
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
+# Lecture exacte : "9.3" -> 93/10, "2^-3" -> 1/8.
 def read_number(number, exponent, position, text):
-    value = float(number)
+    value = Fraction(number)
     if exponent is not None:
         exponent = int(exponent)
-        if value == 0.0 and exponent < 0:
+        if value == 0 and exponent < 0:
             raise ComputorError("division by zero", position, text)
-        try:
-            value = value**exponent
-        except OverflowError:
-            raise ComputorError("number too large", position, text) from None
-    if number.strip("0.") == "":
-        return value
+        if abs(exponent) > MAX_EXPONENT:
+            raise ComputorError("exponent greater than %d" % MAX_EXPONENT, position, text)
+        value = value**exponent
     check_magnitude(value, position, text)
     return value
 
 
-def check_magnitude(value, position, text):
+def check_magnitude(value, position=None, text=None):
     if abs(value) > MAX_VALUE:
         raise ComputorError("number too large", position, text)
-    if value != 0.0 and abs(value) < MIN_VALUE:
+    if value != 0 and abs(value) < MIN_VALUE:
         raise ComputorError("number too small", position, text)
 
 
-# Chaque coefficient vient avec sa marge : l'erreur d'arrondi qu'il peut contenir. Un
-# coefficient plus petit que sa marge est du bruit, il vaut 0 : 0.1 + 0.2 - 0.3 donne
-# 5.5e-17, pour une marge de 4.9e-16.
+# Somme exacte des termes de même degré, ceux de droite soustraits : 0.1 + 0.2 - 0.3 = 0.
 def add_terms(left_terms, right_terms):
-    positives = {}
-    negatives = {}
-    margins = {}
-    for coefficient, degree, roundings in left_terms:
-        add_contribution(positives, negatives, margins, degree, coefficient, roundings)
-    for coefficient, degree, roundings in right_terms:
-        add_contribution(positives, negatives, margins, degree, -coefficient, roundings)
-
     coefficients = {}
-    for degree in margins:
-        up = positives.get(degree, 0.0)
-        down = negatives.get(degree, 0.0)
-        margins[degree] = margins[degree] + EPSILON * max(up, down)
-        if abs(up - down) <= margins[degree]:
-            coefficients[degree] = 0.0
-        else:
-            coefficients[degree] = up - down
-    return coefficients, margins
+    for coefficient, degree in left_terms:
+        coefficients[degree] = coefficients.get(degree, Fraction(0)) + coefficient
+    for coefficient, degree in right_terms:
+        coefficients[degree] = coefficients.get(degree, Fraction(0)) - coefficient
+    return coefficients
 
 
-# La marge grandit de l'erreur du terme, puis de l'arrondi de l'addition.
-def add_contribution(positives, negatives, margins, degree, coefficient, roundings):
-    sums = negatives if coefficient < 0 else positives
-    sums[degree] = sums.get(degree, 0.0) + abs(coefficient)
-    margin = margins.get(degree, 0.0) + roundings * EPSILON * abs(coefficient)
-    margins[degree] = margin + EPSILON * sums[degree]
-
-
-def reduce(coefficients, margins, name):
-    degrees = [d for d, coefficient in coefficients.items() if coefficient != 0.0]
+def reduce(coefficients, name):
+    degrees = [d for d, coefficient in coefficients.items() if coefficient != 0]
     if not degrees:
-        return [], []
+        return []
     if min(degrees) < 0:
         message = "negative exponent %s^%d after reduction" % (name, min(degrees))
         raise ComputorError(message)
@@ -273,8 +246,8 @@ def reduce(coefficients, margins, name):
         raise ComputorError("reduced degree %d greater than %d" % (degree, MAX_DEGREE))
 
     reduced = []
-    reduced_margins = []
     for d in range(degree + 1):
-        reduced.append(coefficients.get(d, 0.0))
-        reduced_margins.append(margins.get(d, 0.0))
-    return reduced, reduced_margins
+        coefficient = coefficients.get(d, Fraction(0))
+        check_magnitude(coefficient)
+        reduced.append(coefficient)
+    return reduced

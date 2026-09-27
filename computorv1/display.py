@@ -67,10 +67,12 @@ def imaginary(y):
     return ("" if p == 1 else str(p)) + "i" + ("" if q == 1 else "/%d" % q)
 
 
+# Solution complexe : couple (partie réelle, partie imaginaire).
 def root(r):
-    if not isinstance(r, complex):
+    if not isinstance(r, tuple):
         return real(r)
-    return "%s %s %s" % (ratio(r.real), "-" if r.imag < 0 else "+", imaginary(abs(r.imag)))
+    re, im = r
+    return "%s %s %s" % (ratio(re), "-" if im < 0 else "+", imaginary(abs(im)))
 
 
 def render(p, solution, name):

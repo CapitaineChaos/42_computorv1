@@ -43,7 +43,7 @@ UTF-8 become `�` instead of crashing the read.
   `0.500000`). Below `0.000001` they switch to scientific notation (`1e-07`) instead of
   printing `0`.
 - A result whose decimals never end is also given as a fraction: `1/3 ≈ 0.333333`. See
-  [Fractions](#fractions).
+  [Exact arithmetic](#exact-arithmetic).
 
 On a terminal, the reduced form is coloured: signs yellow, `*` green, exponents cyan. The
 colours are ANSI escape codes, invisible characters such as `\033[33m` (switch to yellow)
@@ -83,6 +83,7 @@ says so: `(b is the unknown of the equation, not the coefficient b)`.
 | `x^11 = 1`         | reduced degree greater than 10           | `MAX_DEGREE` in `parser.py`                |
 | `2 3 = x`          | missing operator between numbers         | removing spaces would read `23`            |
 | `10^101 * X = 1`   | number too large                         | see below                                  |
+| `2^1001 = x`       | exponent greater than 1000               | see below                                  |
 | `x = 1 = 2`, `= 1` | expected one '=' between two sides       |                                            |
 
 - **Chained exponents**: `2^3^2` is `2^(3^2) = 512` in mathematics and Python, but
@@ -90,9 +91,13 @@ says so: `(b is the unknown of the equation, not the coefficient b)`.
   reader cannot say which one is meant, so it is refused.
 - **Negative exponents** are read, and refused only if a negative degree is left after
   reduction: `x^-1 + x = x^-1` is `x = 0`.
-- **Magnitude**: a number above `1e100` or, except zero, below `1e-100` is refused
-  (`MAX_VALUE`, `MIN_VALUE` in `number.py`). A float stops at about `1.8e308`: beyond
-  those bounds, `b²`, `4ac` or `-b / 2a` would become infinite or `0`.
+- **Magnitude**: a number or a reduced coefficient above `1e100` or, except zero, below
+  `1e-100` is refused (`MAX_VALUE`, `MIN_VALUE` in `number.py`). The calculation is exact
+  at any size, but results are printed through floats, which stop at about `1.8e308`:
+  within those bounds, `b²`, `-Δ / 4a` or `-b / 2a` always fit.
+- **Exponent of a number**: above `1000` (`MAX_EXPONENT` in `parser.py`) it is refused.
+  An exact power keeps every digit: `10^999999999` would have a billion of them and
+  take minutes to compute. Exponents of the unknown are not limited.
 
 Errors show where the problem is, with `^` under the character:
 
@@ -111,59 +116,50 @@ computor: unexpected character '%'
    `parser.NORMALIZATIONS`, in order, each one commented with an example. They end with
    one signed term per word and `*` between factors: `3x² - x` becomes `+3*X^2 -X^1`.
 3. **Read** (`read_terms`, `multiply_factors`): each term is split on `*`, each factor is
-   a number or `X`, each with an optional exponent. Numbers multiply, exponents of X add.
+   a number or `X`, each with an optional exponent. Numbers are read as exact fractions
+   (`9.3` is `93/10`) and multiply, exponents of X add.
 4. **Reduce** (`add_terms`, `reduce`): terms of the same degree are summed, those of the
    right side subtracted.
 
-## Rounding errors
+## Exact arithmetic
 
-Floats are not exact: `0.1 + 0.2 - 0.3` gives `5.5e-17`, and `0.2 * 0.2 - 4 * 0.01`
-gives `6.9e-18`, both instead of `0`. Left alone, `0.1x + 0.2x = 0.3x` would keep a tiny
-`X^1` term, and `x² + 0.2x + 0.01 = 0` would get two solutions instead of one.
+Floats are not exact: `0.1 + 0.2 - 0.3` gives `5.5e-17` instead of `0`. With floats,
+`0.1x + 0.2x = 0.3x` would keep a tiny `X^1` term, and `x² + 0.2x + 0.01 = 0` would get
+Δ = `6.9e-18` and two solutions instead of one.
 
-So every number that can be `0` is compared with its **margin**: the largest rounding
-error it can contain. Below its margin, it is set to exactly `0`.
+So computor does not compute with floats. Every number typed is rational, a fraction of
+two integers: `9.3` is `93/10`, `2^-3` is `1/8`. The sum, difference, product and
+quotient of two fractions is a fraction again, and Python integers have no size limit.
+The reduced form, `Δ = b² - 4ac`, the vertex and every solution that does not need a
+square root are therefore exact: `0.1 + 0.2 - 0.3` is exactly `0`, and `Δ = 0` is a
+plain comparison. There is no epsilon and no tolerance.
 
-**Epsilon.** `sys.float_info.epsilon`, `2.2e-16`, is the gap between `1.0` and the next
-float. One rounding changes a number by at most `epsilon / 2` of its size. The margins
-count one `epsilon` per rounding, twice the worst case.
+**`Fraction`** (`fraction.py`) is a reduced copy of Python's `fractions.Fraction`
+(CPython 3.13.0, each part links to the lines copied). A fraction is kept as a numerator
+and a positive denominator with no common factor, so `2/4` is stored `1/2` and two equal
+fractions always have the same numerator and denominator. The only changes to the
+original, listed at the top of the file:
 
-**Coefficients** (`multiply_factors`, `add_terms` in `parser.py`). A term's roundings are
-counted while it is read: 2 per number (reading it, multiplying it in), plus `n + 1`
-for a power `^n`, which multiplies the error of the number by `n`. The margin of a
-degree then adds up, for each term, `roundings × epsilon × |term|`, plus the rounding of
-each addition. For `0.1x + 0.2x = 0.3x` the margin is `4.9e-16`, above `5.5e-17`: the
-coefficient is `0`.
+- `math.gcd`, from the `math` module, is replaced by `gcd`, Euclid's algorithm copied from
+  Wikipedia;
+- the class does not inherit `numbers.Rational`, which would require some twenty more
+  methods, so the tests `isinstance(x, numbers.Rational)` become
+  `isinstance(x, (Fraction, int))`;
+- docstrings are removed, and so are the branches for types computor never passes:
+  float input, complex, Decimal.
 
-**Discriminant** (`delta_margin` in `solver.py`). `a`, `b` and `c` arrive with their
-margins `ma`, `mb`, `mc`. The worst error they pass on to `b²` is `(|b| + mb)² - b²`, to
-`ac` it is `(|a| + ma)(|c| + mc) - |ac|`. The margin of `Δ` is that inherited error plus
-the roundings of `b * b`, `4 * a * c` and the subtraction. If `|Δ|` is below it, `Δ` is
-`0`: the solution is double, and the `Δ` and `vertex` lines print `0`.
+**Square root** (`sqrt` in `number.py`). The only step that can leave the fractions:
+`√(p/q)` is rational if and only if `p` and `q` are perfect squares, then it is exact:
+`√(9/4) = 3/2`. Otherwise it is irrational and cannot be written exactly in any form.
+It is then a float with 15 decimals: `isqrt` finds the integer square root by binary
+search, and `√y = isqrt(y × 10³⁰) / 10¹⁵`. The solutions computed from it are floats too,
+and they are the only approximate numbers in the output.
 
-A fixed tolerance would not work. The previous one, `1e-9` (Python's default for
-`math.isclose`), made `1` and `1.0000000001` equal: `x = 1.0000000001x` answered "Any
-real number is a solution" instead of `x = 0`, and `x² + 2x + 0.9999999999 = 0` gave one
-solution instead of two. With margins, a difference is ignored only if rounding alone
-can explain it.
-
-## Fractions
-
-`fraction(x)` in `number.py`:
-
-1. `x.as_integer_ratio()` gives the exact fraction stored in the float, with a power of 2
-   as denominator: `1/3` is stored as `6004799503160661/18014398509481984`.
-2. `limit_denominator` finds the closest fraction whose denominator is at most `10000`
-   (`MAX_DENOMINATOR`): `1/3`. It is copied from CPython's `fractions.Fraction`, which
-   uses continued fractions.
-3. The fraction is kept only if it equals `x` within `1e-12`, so an irrational such as
-   `√2` is never shown as a fraction.
-
-The fraction is printed only if its decimals never end, that is when the denominator has
-a prime factor other than 2 and 5: `1/3 ≈ 0.333333`, but `1/4` is printed `0.25`.
-
-Square roots are computed without `math.sqrt`: `isqrt` finds the integer square root by
-binary search, and `sqrt(y) = isqrt(y × 10³⁰) / 10¹⁵` keeps 15 decimals.
+**Printing.** A fraction is printed as a decimal with at most 6 decimals. When its
+decimals never end, that is when the denominator has a prime factor other than 2 and 5,
+the fraction is given too: `1/3 ≈ 0.333333`, but `1/4` is printed `0.25`. It is only
+given if the denominator is at most `10000` (`MAX_DENOMINATOR`), to stay readable. The
+parts of a complex solution are fractions when they are exact: `-1/5 + 2i/5`.
 
 ## Exit status
 
@@ -191,14 +187,16 @@ binary search, and `sqrt(y) = isqrt(y × 10³⁰) / 10¹⁵` keeps 15 decimals.
 A comment above a function gives its source:
 
 - `# code: URL`: the function copies that code.
-  `isqrt` (Wikipedia, binary search), `limit_denominator` (CPython `fractions.py`),
+  `isqrt` (Wikipedia, binary search), `gcd` (Wikipedia, Euclid's algorithm), the
+  `Fraction` class (CPython `fractions.py` and `numbers.py`, one link per method),
   `colorize` (Wikipedia, ANSI escape codes).
 - `# formule: URL`: the function applies that formula.
-  `isclose` (Python `math.isclose`, used for [fractions](#fractions)), `sqrt`, `terminates` (decimals end iff the
-  denominator has only 2 and 5 as prime factors), `multiply_factors` and `read_number`
+  `sqrt` (a square root is rational iff both terms of the fraction are squares;
+  `isqrt(y × 10³⁰) / 10¹⁵`), `terminates` (decimals end iff the denominator has only 2
+  and 5 as prime factors), `multiply_factors` and `read_number`
   (`xᵃ · xᵇ = xᵃ⁺ᵇ`), `linear`, `quadratic`, `vertex`.
 - `# doc: URL`: the function relies on the Python behaviour documented there.
-  `fraction` (`float.as_integer_ratio`), `fmt` (`%` formatting), `split_sides`,
+  `fmt` (`%` formatting), `split_sides`,
   `check_characters`, `normalize` (`re` module), `read_terms` (`str.split`), `read_stdin`
   (`sys.stdin`), `close_quietly` (SIGPIPE), the `computor` entry point (`Exception`,
   `sysexits`).
@@ -214,17 +212,18 @@ computorv1/cli.py        argument or stdin, exit status
 computorv1/parser.py     check, normalize, read, reduce
 computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
 computorv1/display.py    output text and colours
-computorv1/number.py     square root, fractions, number formatting
+computorv1/fraction.py   exact fractions, copied from CPython
+computorv1/number.py     square root, number formatting
 tests/test_computor.py   unittest suite
 tests/corpus.py          inputs taken from 456 GitHub repositories of 42 students
 ```
 
 `corpus.py` holds three lists:
 
-- `EQUATIONS` (453): equations from those repositories' READMEs and test scripts, with
+- `EQUATIONS` (429): equations from those repositories' READMEs and test scripts, with
   their reduced form. Each expected form was checked by evaluating the original equation
   with Python's `eval()` at several values of X and comparing with the polynomial.
-- `REFUSED` (84): inputs that must be refused, with the start of the expected message.
+- `REFUSED` (108): inputs that must be refused, with the start of the expected message.
 - `CRASHERS` (8): inputs that once crashed computor or made it answer wrong, each with
   the cause. Some were found by fuzzing (feeding the program large numbers of random or
   mutated inputs until one breaks it), the others by trying edge cases. They are kept so
