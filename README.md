@@ -110,10 +110,13 @@ computor: unexpected character '%'
 
 ## How the parser works
 
+`normalize.py` works on text, steps 1 and 2; `parser.py` turns that text into numbers,
+steps 3 and 4.
+
 1. **Check** (`split_sides`, `check_characters`): exactly one `=` with something on each
    side, then the refused cases above, on the raw text so the `^` points at what was typed.
-2. **Normalize** (`normalize`): each side goes through the regex substitutions of
-   `parser.NORMALIZATIONS`, in order, each one commented with an example. They end with
+2. **Normalize** (`normalize_side`): each side goes through the regex substitutions of
+   `NORMALIZATIONS`, in order, each one commented with an example. They end with
    one signed term per word and `*` between factors: `3x² - x` becomes `+3*X^2 -X^1`.
 3. **Read** (`read_terms`, `multiply_factors`): each term is split on `*`, each factor is
    a number or `X`, each with an optional exponent. Numbers are read as exact fractions
@@ -197,7 +200,7 @@ A comment above a function gives its source:
   (`xᵃ · xᵇ = xᵃ⁺ᵇ`), `linear`, `quadratic`, `vertex`.
 - `# doc: URL`: the function relies on the Python behaviour documented there.
   `fmt` (`%` formatting), `split_sides`,
-  `check_characters`, `normalize` (`re` module), `read_terms` (`str.split`), `read_stdin`
+  `check_characters`, `normalize_side` (`re` module), `read_terms` (`str.split`), `read_stdin`
   (`sys.stdin`), `close_quietly` (SIGPIPE), the `computor` entry point (`Exception`,
   `sysexits`).
 
@@ -209,7 +212,8 @@ change. A function without such a comment was written for this project.
 ```
 computor                 entry point, turns a crash into exit status 70
 computorv1/cli.py        argument or stdin, exit status
-computorv1/parser.py     check, normalize, read, reduce
+computorv1/normalize.py  check and rewrite the text of the equation
+computorv1/parser.py     read the numbers, reduce
 computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
 computorv1/display.py    output text, number formatting, colours
 computorv1/fraction.py   exact fractions, square root
