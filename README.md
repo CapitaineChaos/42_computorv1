@@ -134,19 +134,13 @@ The reduced form, `Δ = b² - 4ac`, the vertex and every solution that does not 
 square root are therefore exact: `0.1 + 0.2 - 0.3` is exactly `0`, and `Δ = 0` is a
 plain comparison. There is no epsilon and no tolerance.
 
-**`Fraction`** (`fraction.py`) is a reduced copy of Python's `fractions.Fraction`
-(CPython 3.13.0, each part links to the lines copied). A fraction is kept as a numerator
-and a positive denominator with no common factor, so `2/4` is stored `1/2` and two equal
-fractions always have the same numerator and denominator. The only changes to the
-original, listed at the top of the file:
-
-- `math.gcd`, from the `math` module, is replaced by `gcd`, Euclid's algorithm copied from
-  Wikipedia;
-- the class does not inherit `numbers.Rational`, which would require some twenty more
-  methods, so the tests `isinstance(x, numbers.Rational)` become
-  `isinstance(x, (Fraction, int))`;
-- docstrings are removed, and so are the branches for types computor never passes:
-  float input, complex, Decimal.
+**`Fraction`** (`fraction.py`) holds a numerator and a denominator. It is always kept
+in canonical form: divided by their greatest common divisor (`gcd`, Euclid's algorithm),
+denominator positive. So `2/4` is stored `1/2`, and two equal fractions always have the
+same numerator and denominator. Each operation applies the formula of the Wikipedia
+article *Rational number*: `a/b + c/d = (ad + bc) / bd`, `a/b × c/d = ac / bd`,
+`a/b < c/d` iff `ad < bc`... A number typed with a point is a decimal fraction: `9.3`
+is `93/10` (`from_decimal`).
 
 **Square root** (`sqrt` in `number.py`). The only step that can leave the fractions:
 `√(p/q)` is rational if and only if `p` and `q` are perfect squares, then it is exact:
@@ -187,10 +181,10 @@ parts of a complex solution are fractions when they are exact: `-1/5 + 2i/5`.
 A comment above a function gives its source:
 
 - `# code: URL`: the function copies that code.
-  `isqrt` (Wikipedia, binary search), `gcd` (Wikipedia, Euclid's algorithm), the
-  `Fraction` class (CPython `fractions.py` and `numbers.py`, one link per method),
-  `colorize` (Wikipedia, ANSI escape codes).
+  `isqrt` (Wikipedia, binary search), `gcd` (Wikipedia, Euclid's algorithm),
+  `Fraction.__float__` (CPython `numbers.py`), `colorize` (Wikipedia, ANSI escape codes).
 - `# formule: URL`: the function applies that formula.
+  Each operation of `Fraction` (Wikipedia, *Rational number*), `from_decimal`,
   `sqrt` (a square root is rational iff both terms of the fraction are squares;
   `isqrt(y × 10³⁰) / 10¹⁵`), `terminates` (decimals end iff the denominator has only 2
   and 5 as prime factors), `multiply_factors` and `read_number`
@@ -212,7 +206,7 @@ computorv1/cli.py        argument or stdin, exit status
 computorv1/parser.py     check, normalize, read, reduce
 computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
 computorv1/display.py    output text and colours
-computorv1/fraction.py   exact fractions, copied from CPython
+computorv1/fraction.py   exact fractions
 computorv1/number.py     square root, number formatting
 tests/test_computor.py   unittest suite
 tests/corpus.py          inputs taken from 456 GitHub repositories of 42 students

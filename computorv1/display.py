@@ -76,14 +76,15 @@ def root(r):
 
 
 def render(p, solution, name):
+    kind, roots, steps = solution
     lines = ["Reduced form: " + colorize(reduced_form(p, name))]
-    if solution.kind not in ("all", "none"):
+    if kind not in ("all", "none"):
         lines.append("Polynomial degree: %d" % (len(p) - 1))
-    lines += ["  " + step for step in solution.steps]
-    lines.append(HEADLINES[solution.kind])
-    for i, r in enumerate(solution.roots):
-        index = str(i + 1) if len(solution.roots) > 1 else ""
+    lines += ["  " + step for step in steps]
+    lines.append(HEADLINES[kind])
+    for i, r in enumerate(roots):
+        index = str(i + 1) if len(roots) > 1 else ""
         lines.append("%s%s = %s" % (name, index, root(r)))
-    if solution.roots and name in COEFFICIENTS:
+    if roots and name in COEFFICIENTS:
         lines.append("(%s is the unknown of the equation, not the coefficient %s)" % (name, name))
     return lines

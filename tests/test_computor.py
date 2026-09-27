@@ -12,7 +12,7 @@ from os.path import abspath, dirname, join
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from computorv1.cli import main  # noqa: E402
-from computorv1.fraction import Fraction, gcd  # noqa: E402
+from computorv1.fraction import Fraction, from_decimal, gcd  # noqa: E402
 from computorv1.number import fmt, fraction, sqrt, terminates  # noqa: E402
 from computorv1.parser import ComputorError, parse  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
@@ -368,7 +368,7 @@ class Number(unittest.TestCase):
         self.assertIsInstance(sqrt(Fraction(9, 2)), float)
 
     def test_fraction(self):
-        self.assertEqual(fraction(Fraction("-0.2")), (-1, 5))
+        self.assertEqual(fraction(from_decimal("0.2") * -1), (-1, 5))
         self.assertEqual(fraction(Fraction(1, 3)), (1, 3))
         self.assertIsNone(fraction(Fraction(1, 10001)))
         self.assertIsNone(fraction(sqrt(Fraction(2))))
@@ -376,8 +376,9 @@ class Number(unittest.TestCase):
         self.assertFalse(terminates(12))
 
     def test_exact(self):
-        self.assertEqual(Fraction("0.1") + Fraction("0.2"), Fraction("0.3"))
-        self.assertEqual(Fraction("9.3"), Fraction(93, 10))
+        self.assertEqual(from_decimal("0.1") + from_decimal("0.2"), from_decimal("0.3"))
+        self.assertEqual(from_decimal("9.3"), Fraction(93, 10))
+        self.assertEqual(from_decimal("12"), Fraction(12))
         self.assertEqual(Fraction(1, 3) * 3, 1)
         self.assertEqual(Fraction(2) ** -3, Fraction(1, 8))
         self.assertEqual(Fraction(6, -4), Fraction(-3, 2))

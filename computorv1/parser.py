@@ -1,6 +1,6 @@
 import re
 
-from .fraction import Fraction
+from .fraction import Fraction, from_decimal
 from .number import MAX_VALUE, MIN_VALUE
 
 MAX_DEGREE = 10
@@ -205,7 +205,7 @@ def multiply_factors(term):
 # formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
 # Lecture exacte : "9.3" -> 93/10, "2^-3" -> 1/8.
 def read_number(number, exponent, position, text):
-    value = Fraction(number)
+    value = from_decimal(number)
     if exponent is not None:
         exponent = int(exponent)
         if value == 0 and exponent < 0:

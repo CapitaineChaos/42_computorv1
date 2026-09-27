@@ -1,13 +1,7 @@
-import operator
-import re
-
-# Nombres rationnels exacts : copie réduite de fractions.Fraction, CPython 3.13.0.
-# Chaque partie donne les lignes copiées. Différences avec l'original :
-# - math.gcd est remplacé par gcd ci-dessous, copié de Wikipedia ;
-# - numbers.Rational, la classe abstraite des rationnels, int compris, devient
-#   (Fraction, int) : en hériter obligerait à écrire une vingtaine de méthodes inutiles ici ;
-# - docstrings retirées, ainsi que les branches pour les types que computor ne donne
-#   jamais : float en entrée du constructeur et des comparaisons, complex, Decimal.
+# Nombre rationnel exact a/b, a et b entiers. Chaque opération applique la formule de la
+# section du même nom de l'article Rational_number, révision 1357066562.
+# Avec un float, le résultat est un float : c'est le cas des solutions calculées avec une
+# racine carrée irrationnelle.
 
 
 # code: https://en.wikipedia.org/w/index.php?title=Euclidean_algorithm&oldid=1375335874#Implementations
@@ -21,238 +15,109 @@ def gcd(a, b):
     return abs(a)
 
 
-# code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L57-L69
-_RATIONAL_FORMAT = re.compile(
-    r"""
-    \A\s*                                  # optional whitespace at the start,
-    (?P<sign>[-+]?)                        # an optional sign, then
-    (?=\d|\.\d)                            # lookahead for digit or .digit
-    (?P<num>\d*|\d+(_\d+)*)                # numerator (possibly empty)
-    (?:                                    # followed by
-       (?:\s*/\s*(?P<denom>\d+(_\d+)*))?   # an optional denominator
-    |                                      # or
-       (?:\.(?P<decimal>\d*|\d+(_\d+)*))?  # an optional fractional part
-       (?:E(?P<exp>[-+]?\d+(_\d+)*))?      # and optional exponent
-    )
-    \s*\Z                                  # and optional whitespace to finish
-""",
-    re.VERBOSE | re.IGNORECASE,
-)
+# formule: https://en.wikipedia.org/w/index.php?title=Decimal&oldid=1375686107#Decimal_fractions
+# n chiffres après le point : dénominateur 10ⁿ, numérateur sans le point. "9.3" -> 93/10.
+def from_decimal(text):
+    whole, _, decimals = text.partition(".")
+    return Fraction(int(whole + decimals), 10 ** len(decimals))
+
+
+# formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Embedding_of_integers
+# Un entier n est la fraction n/1.
+def to_fraction(x):
+    if isinstance(x, Fraction):
+        return x
+    return Fraction(x)
 
 
 class Fraction:
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L200
-    __slots__ = ("_numerator", "_denominator")
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L202-L306
-    # We're immutable, so use __new__ not __init__
-    def __new__(cls, numerator=0, denominator=None):
-        self = super(Fraction, cls).__new__(cls)
-
-        if denominator is None:
-            if type(numerator) is int:
-                self._numerator = numerator
-                self._denominator = 1
-                return self
-
-            elif isinstance(numerator, Fraction):
-                self._numerator = numerator.numerator
-                self._denominator = numerator.denominator
-                return self
-
-            elif isinstance(numerator, str):
-                # Handle construction from strings.
-                m = _RATIONAL_FORMAT.match(numerator)
-                if m is None:
-                    raise ValueError("Invalid literal for Fraction: %r" % numerator)
-                numerator = int(m.group("num") or "0")
-                denom = m.group("denom")
-                if denom:
-                    denominator = int(denom)
-                else:
-                    denominator = 1
-                    decimal = m.group("decimal")
-                    if decimal:
-                        decimal = decimal.replace("_", "")
-                        scale = 10 ** len(decimal)
-                        numerator = numerator * scale + int(decimal)
-                        denominator *= scale
-                    exp = m.group("exp")
-                    if exp:
-                        exp = int(exp)
-                        if exp >= 0:
-                            numerator *= 10**exp
-                        else:
-                            denominator *= 10**-exp
-                if m.group("sign") == "-":
-                    numerator = -numerator
-
-            else:
-                raise TypeError("argument should be a string or a Rational instance")
-
-        elif type(numerator) is int is type(denominator):
-            pass  # *very* normal case
-
-        else:
-            raise TypeError("both arguments should be Rational instances")
-
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Irreducible_fraction
+    # Forme canonique : divisée par le pgcd, dénominateur positif. 6/-4 -> -3/2.
+    def __init__(self, numerator, denominator=1):
         if denominator == 0:
-            raise ZeroDivisionError("Fraction(%s, 0)" % numerator)
+            raise ZeroDivisionError("division by zero")
         g = gcd(numerator, denominator)
         if denominator < 0:
             g = -g
-        numerator //= g
-        denominator //= g
-        self._numerator = numerator
-        self._denominator = denominator
-        return self
+        self.numerator = numerator // g
+        self.denominator = denominator // g
 
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L334-L344
-    @classmethod
-    def _from_coprime_ints(cls, numerator, denominator, /):
-        obj = super(Fraction, cls).__new__(cls)
-        obj._numerator = numerator
-        obj._denominator = denominator
-        return obj
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L414-L420
-    @property
-    def numerator(a):
-        return a._numerator
-
-    @property
-    def denominator(a):
-        return a._denominator
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L422-L425
     def __repr__(self):
-        return "%s(%s, %s)" % (self.__class__.__name__, self._numerator, self._denominator)
+        return "Fraction(%d, %d)" % (self.numerator, self.denominator)
 
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L582-L690
-    # Opération entre une Fraction et un int : l'int devient une Fraction. Entre une
-    # Fraction et un float : la Fraction devient un float, le résultat est un float.
-    def _operator_fallbacks(monomorphic_operator, fallback_operator):
-        def forward(a, b):
-            if isinstance(b, Fraction):
-                return monomorphic_operator(a, b)
-            elif isinstance(b, int):
-                return monomorphic_operator(a, Fraction(b))
-            elif isinstance(b, float):
-                return fallback_operator(float(a), b)
-            else:
-                return NotImplemented
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Addition
+    def __add__(a, b):
+        if isinstance(b, float):
+            return float(a) + b
+        b = to_fraction(b)
+        return Fraction(
+            a.numerator * b.denominator + b.numerator * a.denominator,
+            a.denominator * b.denominator,
+        )
 
-        forward.__name__ = "__" + fallback_operator.__name__ + "__"
-        forward.__doc__ = monomorphic_operator.__doc__
+    __radd__ = __add__
 
-        def reverse(b, a):
-            if isinstance(a, int):
-                return monomorphic_operator(Fraction(a), b)
-            elif isinstance(a, float):
-                return fallback_operator(float(a), float(b))
-            else:
-                return NotImplemented
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Subtraction
+    def __sub__(a, b):
+        if isinstance(b, float):
+            return float(a) - b
+        b = to_fraction(b)
+        return Fraction(
+            a.numerator * b.denominator - b.numerator * a.denominator,
+            a.denominator * b.denominator,
+        )
 
-        reverse.__name__ = "__r" + fallback_operator.__name__ + "__"
-        reverse.__doc__ = monomorphic_operator.__doc__
+    def __rsub__(a, b):
+        return -a + b
 
-        return forward, reverse
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Multiplication
+    def __mul__(a, b):
+        if isinstance(b, float):
+            return float(a) * b
+        b = to_fraction(b)
+        return Fraction(a.numerator * b.numerator, a.denominator * b.denominator)
 
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L692-L774
-    # La justification de ces calculs est en commentaire dans l'original, lignes 692 à 758.
-    def _add(a, b):
-        na, da = a._numerator, a._denominator
-        nb, db = b._numerator, b._denominator
-        g = gcd(da, db)
-        if g == 1:
-            return Fraction._from_coprime_ints(na * db + da * nb, da * db)
-        s = da // g
-        t = na * (db // g) + nb * s
-        g2 = gcd(t, g)
-        if g2 == 1:
-            return Fraction._from_coprime_ints(t, s * db)
-        return Fraction._from_coprime_ints(t // g2, s * (db // g2))
+    __rmul__ = __mul__
 
-    __add__, __radd__ = _operator_fallbacks(_add, operator.add)
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Division
+    def __truediv__(a, b):
+        if isinstance(b, float):
+            return float(a) / b
+        b = to_fraction(b)
+        return Fraction(a.numerator * b.denominator, a.denominator * b.numerator)
 
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L776-L790
-    def _sub(a, b):
-        na, da = a._numerator, a._denominator
-        nb, db = b._numerator, b._denominator
-        g = gcd(da, db)
-        if g == 1:
-            return Fraction._from_coprime_ints(na * db - da * nb, da * db)
-        s = da // g
-        t = na * (db // g) - nb * s
-        g2 = gcd(t, g)
-        if g2 == 1:
-            return Fraction._from_coprime_ints(t, s * db)
-        return Fraction._from_coprime_ints(t // g2, s * (db // g2))
+    def __rtruediv__(a, b):
+        if isinstance(b, float):
+            return b / float(a)
+        return to_fraction(b) / a
 
-    __sub__, __rsub__ = _operator_fallbacks(_sub, operator.sub)
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Exponentiation_to_integer_power
+    def __pow__(a, n):
+        if n < 0:
+            return Fraction(a.denominator**-n, a.numerator**-n)
+        return Fraction(a.numerator**n, a.denominator**n)
 
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L792-L806
-    def _mul(a, b):
-        na, da = a._numerator, a._denominator
-        nb, db = b._numerator, b._denominator
-        g1 = gcd(na, db)
-        if g1 > 1:
-            na //= g1
-            db //= g1
-        g2 = gcd(nb, da)
-        if g2 > 1:
-            nb //= g2
-            da //= g2
-        return Fraction._from_coprime_ints(na * nb, db * da)
-
-    __mul__, __rmul__ = _operator_fallbacks(_mul, operator.mul)
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L808-L828
-    def _div(a, b):
-        # Same as _mul(), with inversed b.
-        nb, db = b._numerator, b._denominator
-        if nb == 0:
-            raise ZeroDivisionError("Fraction(%s, 0)" % db)
-        na, da = a._numerator, a._denominator
-        g1 = gcd(na, nb)
-        if g1 > 1:
-            na //= g1
-            nb //= g1
-        g2 = gcd(db, da)
-        if g2 > 1:
-            da //= g2
-            db //= g2
-        n, d = na * db, nb * da
-        if d < 0:
-            n, d = -n, -d
-        return Fraction._from_coprime_ints(n, d)
-
-    __truediv__, __rtruediv__ = _operator_fallbacks(_div, operator.truediv)
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L851-L881
-    # Exposant entier seulement : la branche des exposants non entiers est retirée.
-    def __pow__(a, b):
-        if isinstance(b, (Fraction, int)):
-            if b.denominator == 1:
-                power = b.numerator
-                if power >= 0:
-                    return Fraction._from_coprime_ints(a._numerator**power, a._denominator**power)
-                elif a._numerator > 0:
-                    return Fraction._from_coprime_ints(a._denominator**-power, a._numerator**-power)
-                elif a._numerator == 0:
-                    raise ZeroDivisionError("Fraction(%s, 0)" % a._denominator**-power)
-                else:
-                    return Fraction._from_coprime_ints(
-                        (-a._denominator) ** -power, (-a._numerator) ** -power
-                    )
-        return NotImplemented
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L901-L907
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Inverse
     def __neg__(a):
-        return Fraction._from_coprime_ints(-a._numerator, a._denominator)
+        return Fraction(-a.numerator, a.denominator)
 
     def __abs__(a):
-        return Fraction._from_coprime_ints(abs(a._numerator), a._denominator)
+        return -a if a < 0 else a
+
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Equality
+    # Deux formes canoniques sont égales si et seulement si leurs termes le sont.
+    def __eq__(a, b):
+        b = to_fraction(b)
+        return a.numerator == b.numerator and a.denominator == b.denominator
+
+    # formule: https://en.wikipedia.org/w/index.php?title=Rational_number&oldid=1357066562#Ordering
+    # Dénominateurs positifs : a/b < c/d si et seulement si ad < bc.
+    def __lt__(a, b):
+        b = to_fraction(b)
+        return a.numerator * b.denominator < b.numerator * a.denominator
+
+    def __gt__(a, b):
+        return to_fraction(b) < a
 
     # code: https://github.com/python/cpython/blob/v3.13.0/Lib/numbers.py#L308-L316
     # Division des deux entiers, sans les convertir en float d'abord : pas de dépassement
@@ -260,35 +125,3 @@ class Fraction:
     # l'est pas.
     def __float__(self):
         return int(self.numerator) / int(self.denominator)
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L962-L981
-    def __eq__(a, b):
-        if type(b) is int:
-            return a._numerator == b and a._denominator == 1
-        if isinstance(b, Fraction):
-            return a._numerator == b.numerator and a._denominator == b.denominator
-        else:
-            # Since a doesn't know how to compare with b, let's give b
-            # a chance to compare itself with a.
-            return NotImplemented
-
-    # code: https://github.com/python/cpython/blob/v3.13.0/Lib/fractions.py#L983-L1019
-    # a/b < c/d revient à a*d < b*c, les dénominateurs étant positifs.
-    def _richcmp(self, other, op):
-        # convert other to a Rational instance where reasonable.
-        if isinstance(other, (Fraction, int)):
-            return op(self._numerator * other.denominator, self._denominator * other.numerator)
-        else:
-            return NotImplemented
-
-    def __lt__(a, b):
-        return a._richcmp(b, operator.lt)
-
-    def __gt__(a, b):
-        return a._richcmp(b, operator.gt)
-
-    def __le__(a, b):
-        return a._richcmp(b, operator.le)
-
-    def __ge__(a, b):
-        return a._richcmp(b, operator.ge)
