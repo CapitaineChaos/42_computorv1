@@ -17,6 +17,10 @@ from computorv1.parser import ComputorError, parse  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
 
 
+def reduced(source):
+    return parse(source)[0]
+
+
 def run(*argv):
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
@@ -36,13 +40,14 @@ class Subject(unittest.TestCase):
             "Reduced form: 4 * X^0 + 4 * X^1 - 9.3 * X^2 = 0\n"
             "Polynomial degree: 2\n"
             "Discriminant is strictly positive, the two solutions are:\n"
-            "-0.475131\n0.905239\n",
+            "X1 = -0.475131\nX2 = 0.905239\n",
         )
 
     def test_linear(self):
         self.check(
             "5 * X^0 + 4 * X^1 = 4 * X^0",
-            "Reduced form: 1 * X^0 + 4 * X^1 = 0\nPolynomial degree: 1\nThe solution is:\n-0.25\n",
+            "Reduced form: 1 * X^0 + 4 * X^1 = 0\nPolynomial degree: 1\n"
+            "The solution is:\nX = -0.25\n",
         )
 
     def test_high(self):
@@ -67,65 +72,79 @@ class Subject(unittest.TestCase):
             "Reduced form: 1 * X^0 + 2 * X^1 + 5 * X^2 = 0\n"
             "Polynomial degree: 2\n"
             "Discriminant is strictly negative, the two complex solutions are:\n"
-            "-1/5 + 2i/5\n-1/5 - 2i/5\n",
+            "X1 = -1/5 + 2i/5\nX2 = -1/5 - 2i/5\n",
         )
 
     def test_fractions(self):
         _, out, _ = run("3 * x = 1")
-        self.assertTrue(out.endswith("The solution is:\n1/3 ≈ 0.333333\n"))
+        self.assertTrue(out.endswith("The solution is:\nx = 1/3 ≈ 0.333333\n"))
         _, out, _ = run("x^2 + x + 1 = 0")
-        self.assertTrue(out.endswith("-1/2 + 0.866025i\n-1/2 - 0.866025i\n"))
+        self.assertTrue(out.endswith("x1 = -1/2 + 0.866025i\nx2 = -1/2 - 0.866025i\n"))
         _, out, _ = run("x^2 + 1 = 0")
-        self.assertTrue(out.endswith("0 + i\n0 - i\n"))
+        self.assertTrue(out.endswith("x1 = 0 + i\nx2 = 0 - i\n"))
 
     def test_double(self):
         _, out, _ = run("x^2 - 2 * x + 1 = 0")
-        self.assertTrue(out.endswith("Discriminant is zero, the solution is:\n1\n"))
+        self.assertTrue(out.endswith("Discriminant is zero, the solution is:\nx = 1\n"))
 
 
 class FreeForm(unittest.TestCase):
     def test_subject_bonus(self):
-        self.assertEqual(parse("5 + 4 * X + X^2= X^2"), [5.0, 4.0])
+        self.assertEqual(reduced("5 + 4 * X + X^2= X^2"), [5.0, 4.0])
 
     def test_normalizations(self):
-        self.assertEqual(parse("3x = 1"), [-1.0, 3.0])
-        self.assertEqual(parse("X^0 * 8 = 2X"), [8.0, -2.0])
-        self.assertEqual(parse("x - - 2 = 0"), [2.0, 1.0])
-        self.assertEqual(parse("-x^2 = 4"), [-4.0, 0.0, -1.0])
-        self.assertEqual(parse("9.3X^10 = 0.5"), [-0.5] + [0.0] * 9 + [9.3])
-        self.assertEqual(parse(".5 = 5.X"), [0.5, -5.0])
+        self.assertEqual(reduced("3x = 1"), [-1.0, 3.0])
+        self.assertEqual(reduced("X^0 * 8 = 2X"), [8.0, -2.0])
+        self.assertEqual(reduced("x - - 2 = 0"), [2.0, 1.0])
+        self.assertEqual(reduced("-x^2 = 4"), [-4.0, 0.0, -1.0])
+        self.assertEqual(reduced("9.3X^10 = 0.5"), [-0.5] + [0.0] * 9 + [9.3])
+        self.assertEqual(reduced(".5 = 5.X"), [0.5, -5.0])
 
     def test_products(self):
-        self.assertEqual(parse("X * X = 4"), [-4.0, 0.0, 1.0])
-        self.assertEqual(parse("2 * 3 * X = 1"), [-1.0, 6.0])
-        self.assertEqual(parse("X^2 * X^0 * 0.5 = 2"), [-2.0, 0.0, 0.5])
-        self.assertEqual(parse("3x^2x = 1"), [-1.0, 0.0, 0.0, 3.0])
-        self.assertEqual(parse("XXX = 8"), [-8.0, 0.0, 0.0, 1.0])
-        self.assertEqual(parse("X^1X^1 = 4"), [-4.0, 0.0, 1.0])
-        self.assertEqual(parse("X3 = 6"), [-6.0, 3.0])
-        self.assertEqual(parse("X.5 = 1"), [-1.0, 0.5])
+        self.assertEqual(reduced("X * X = 4"), [-4.0, 0.0, 1.0])
+        self.assertEqual(reduced("2 * 3 * X = 1"), [-1.0, 6.0])
+        self.assertEqual(reduced("X^2 * X^0 * 0.5 = 2"), [-2.0, 0.0, 0.5])
+        self.assertEqual(reduced("3x^2x = 1"), [-1.0, 0.0, 0.0, 3.0])
+        self.assertEqual(reduced("XXX = 8"), [-8.0, 0.0, 0.0, 1.0])
+        self.assertEqual(reduced("X^1X^1 = 4"), [-4.0, 0.0, 1.0])
+        self.assertEqual(reduced("X3 = 6"), [-6.0, 3.0])
+        self.assertEqual(reduced("X.5 = 1"), [-1.0, 0.5])
 
     def test_signed_coefficients(self):
-        self.assertEqual(parse("-0.5 * X^0 + -3 * X^1 = 0"), [-0.5, -3.0])
-        self.assertEqual(parse("X = - -2"), [-2.0, 1.0])
+        self.assertEqual(reduced("-0.5 * X^0 + -3 * X^1 = 0"), [-0.5, -3.0])
+        self.assertEqual(reduced("X = - -2"), [-2.0, 1.0])
 
     def test_high_exponents_cancel(self):
-        self.assertEqual(parse("x^20 + x = x^20 + 1"), [-1.0, 1.0])
-        self.assertEqual(parse("x^999999999 = x^999999999"), [])
+        self.assertEqual(reduced("x^20 + x = x^20 + 1"), [-1.0, 1.0])
+        self.assertEqual(reduced("x^999999999 = x^999999999"), [])
 
     def test_case(self):
-        self.assertEqual(parse("x^2 = X"), [0.0, -1.0, 1.0])
+        with self.assertRaises(ComputorError):
+            parse("x^2 = X")
 
     def test_any_single_letter(self):
-        self.assertEqual(parse("y^2 = 4"), [-4.0, 0.0, 1.0])
-        self.assertEqual(parse("3a + 1 = 0"), [1.0, 3.0])
-        self.assertEqual(parse("B^2 = B"), [0.0, -1.0, 1.0])
+        self.assertEqual(reduced("y^2 = 4"), [-4.0, 0.0, 1.0])
+        self.assertEqual(reduced("3a + 1 = 0"), [1.0, 3.0])
+        self.assertEqual(reduced("B^2 = B"), [0.0, -1.0, 1.0])
+
+    def test_unknown_name(self):
+        self.assertEqual(parse("3b + 1 = 0")[2], "b")
+        self.assertEqual(parse("1 = 2")[2], "X")
+        _, out, _ = run("b^2 - 1 = 0")
+        self.assertTrue(out.startswith("Reduced form: -1 * b^0 + 0 * b^1 + 1 * b^2 = 0\n"))
+        self.assertIn("  b1 = (-b + √Δ) / 2a", out)
+        note = "(b is the unknown of the equation, not the coefficient b)\n"
+        self.assertTrue(out.endswith("b1 = 1\nb2 = -1\n" + note))
+        _, out, _ = run("3y = 1")
+        self.assertNotIn("not the coefficient", out)
+        _, out, _ = run("2B = 1")
+        self.assertTrue(out.endswith("B = 0.5\n"))
 
     def test_numeric_powers(self):
-        self.assertEqual(parse("-2^2 + 3x = 0"), [-4.0, 3.0])
-        self.assertEqual(parse("-22^2 = 484x"), [-484.0, -484.0])
-        self.assertEqual(parse("3.1^2x^2 = 0"), [0.0, 0.0, 3.1**2])
-        self.assertEqual(parse("-2^-3 + 3x + 2x = 0"), [-0.125, 5.0])
+        self.assertEqual(reduced("-2^2 + 3x = 0"), [-4.0, 3.0])
+        self.assertEqual(reduced("-22^2 = 484x"), [-484.0, -484.0])
+        self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 3.1**2])
+        self.assertEqual(reduced("-2^-3 + 3x + 2x = 0"), [-0.125, 5.0])
         for source in ("2^0.5 = x", "0^-1 = 1", "10^400 = x"):
             with self.assertRaises(ComputorError, msg=source):
                 parse(source)
@@ -141,23 +160,35 @@ class FreeForm(unittest.TestCase):
                 parse(source)
 
     def test_unicode_exponents(self):
-        self.assertEqual(parse("3x² + 4x + 4 = 8"), [-4.0, 4.0, 3.0])
-        self.assertEqual(parse("2y³ = 16"), [-16.0, 0.0, 0.0, 2.0])
-        self.assertEqual(parse("X¹⁰ = 1"), [-1.0] + [0.0] * 9 + [1.0])
-        self.assertEqual(parse("X⁰ = 1"), [])
-        self.assertEqual(parse("x^2 = x²"), [])
-        self.assertEqual(parse("x⁻¹ = x⁻¹"), [])
-        self.assertEqual(parse("3²x = 9"), [-9.0, 9.0])
+        self.assertEqual(reduced("3x² + 4x + 4 = 8"), [-4.0, 4.0, 3.0])
+        self.assertEqual(reduced("2y³ = 16"), [-16.0, 0.0, 0.0, 2.0])
+        self.assertEqual(reduced("X¹⁰ = 1"), [-1.0] + [0.0] * 9 + [1.0])
+        self.assertEqual(reduced("X⁰ = 1"), [])
+        self.assertEqual(reduced("x^2 = x²"), [])
+        self.assertEqual(reduced("x⁻¹ = x⁻¹"), [])
+        self.assertEqual(reduced("x⁺² = 4"), [-4.0, 0.0, 1.0])
+        self.assertEqual(reduced("3²x = 9"), [-9.0, 9.0])
 
     def test_negative_exponent_must_cancel(self):
-        self.assertEqual(parse("x^-1 = x^-1"), [])
-        self.assertEqual(parse("x^-1 + 1 = x^-1"), [1.0])
+        self.assertEqual(reduced("x^-1 = x^-1"), [])
+        self.assertEqual(reduced("x^-1 + 1 = x^-1"), [1.0])
         with self.assertRaises(ComputorError):
             parse("1 * X^-1 + 1 * X^0 = 0")
 
     def test_float_noise_cancels(self):
-        self.assertEqual(parse("0.1 * x + 0.2 * x = 0.3 * x"), [])
-        self.assertEqual(parse("x^2 + 0.1 * x + 0.2 * x = 0.3 * x"), [0.0, 0.0, 1.0])
+        self.assertEqual(reduced("0.1 * x + 0.2 * x = 0.3 * x"), [])
+        self.assertEqual(reduced("x^2 + 0.1 * x + 0.2 * x = 0.3 * x"), [0.0, 0.0, 1.0])
+
+    def test_close_values_stay_different(self):
+        self.assertEqual(reduced("x = 1.0000000001 * x"), [0.0, 1 - 1.0000000001])
+        _, out, _ = run("x^2 + 2x + 0.9999999999 = 0")
+        self.assertIn("the two solutions are", out)
+
+    def test_float_noise_in_delta(self):
+        for source in ("x^2 + 0.2x + 0.01 = 0", "x^2 + 10.3x - 10.1x + 0.01 = 0"):
+            _, out, _ = run(source)
+            self.assertIn("Discriminant is zero", out, source)
+            self.assertIn(" = 0\n  vertex = (-b / 2a, -Δ / 4a) = (-0.1, 0), minimum\n", out)
 
 
 class Students42(unittest.TestCase):
@@ -165,7 +196,7 @@ class Students42(unittest.TestCase):
 
     def test_reduced_forms(self):
         for source, expected in EQUATIONS:
-            self.assertEqual(parse(source), expected, source)
+            self.assertEqual(reduced(source), expected, source)
 
     def test_old_crashers(self):
         for source, cause in CRASHERS:
@@ -236,7 +267,7 @@ class Extras(unittest.TestCase):
         _, out, _ = run("x^2 - x - 6 = 0")
         self.assertIn("  Δ = b² - 4ac = (-1)² - 4 * 1 * (-6) = 25\n", out)
         self.assertIn("  x1 = (-b + √Δ) / 2a = (1 + √25) / 2 = 3\n", out)
-        self.assertIn("  vertex = (-b / 2a, c - b² / 4a) = (0.5, -6.25), minimum\n", out)
+        self.assertIn("  vertex = (-b / 2a, -Δ / 4a) = (0.5, -6.25), minimum\n", out)
         _, out, _ = run("-x^2 + 1 = 0")
         self.assertIn("(0, 1), maximum\n", out)
 
@@ -257,8 +288,9 @@ class EntryPoint(unittest.TestCase):
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
             solver = join(copy, "computorv1", "solver.py")
             source = open(solver).read()
+            header = "def solve(p, margins, name):"
             open(solver, "w").write(
-                source.replace("def solve(p):", "def solve(p):\n    raise RuntimeError('boum')", 1)
+                source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )
             result = subprocess.run(
                 [join(copy, "computor"), "x = 1"], capture_output=True, text=True

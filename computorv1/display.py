@@ -25,6 +25,9 @@ HEADLINES = {
     "high": "The polynomial degree is strictly greater than 2, I can't solve.",
 }
 
+# Noms des coefficients dans les lignes de calcul, que l'inconnue peut porter aussi.
+COEFFICIENTS = ("a", "b", "c")
+
 
 # code: https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
 # doc: https://docs.python.org/3/library/io.html#io.IOBase.isatty
@@ -36,12 +39,12 @@ def colorize(text):
     return text
 
 
-def reduced_form(p):
+def reduced_form(p, name):
     if not p:
-        return "0 * X^0 = 0"
+        return "0 * %s^0 = 0" % name
     text = ""
     for degree, c in enumerate(p):
-        term = "%s * X^%d" % (fmt(abs(c)), degree)
+        term = "%s * %s^%d" % (fmt(abs(c)), name, degree)
         if degree == 0:
             text = ("-" if c < 0 else "") + term
         else:
@@ -70,11 +73,15 @@ def root(r):
     return "%s %s %s" % (ratio(r.real), "-" if r.imag < 0 else "+", imaginary(abs(r.imag)))
 
 
-def render(p, solution):
-    lines = ["Reduced form: " + colorize(reduced_form(p))]
+def render(p, solution, name):
+    lines = ["Reduced form: " + colorize(reduced_form(p, name))]
     if solution.kind not in ("all", "none"):
         lines.append("Polynomial degree: %d" % (len(p) - 1))
     lines += ["  " + step for step in solution.steps]
     lines.append(HEADLINES[solution.kind])
-    lines += [root(r) for r in solution.roots]
+    for i, r in enumerate(solution.roots):
+        index = str(i + 1) if len(solution.roots) > 1 else ""
+        lines.append("%s%s = %s" % (name, index, root(r)))
+    if solution.roots and name in COEFFICIENTS:
+        lines.append("(%s is the unknown of the equation, not the coefficient %s)" % (name, name))
     return lines

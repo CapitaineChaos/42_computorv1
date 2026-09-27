@@ -1,23 +1,27 @@
 import re
 
-from .number import MAX_VALUE, MIN_VALUE, cancels
+from .number import EPSILON, MAX_VALUE, MIN_VALUE
 
 MAX_DEGREE = 10
 
 # Étape 1, un seul '=' avec deux côtés non vides : " 3x + 1 = 4 " -> ('3x + 1 ', '4 ')
 SIDES = re.compile(r"\s*([^=\s][^=]*)=\s*([^=\s][^=]*)")
 
-# Les onze caractères en exposant unicode, et leur équivalent normal.
-SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+# Les douze caractères en exposant unicode, et leur équivalent normal.
+SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
 
 # Étape 2, tout caractère autre que chiffre, lettre, exposant, point, + - * ^ = ou espace
-FORBIDDEN = re.compile(r"[^0-9A-Za-z⁰¹²³⁴⁵⁶⁷⁸⁹⁻.+\-*^=\s]")
+FORBIDDEN = re.compile(r"[^0-9A-Za-z⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻.+\-*^=\s]")
 
 # Étape 2, une parenthèse, qu'il faudrait développer : "2(x+1)" -> '('
 PARENTHESIS = re.compile(r"[()]")
 
-# Étape 2, la première lettre, puis une lettre différente : "x + y = 0" -> ('x', 'y')
-SECOND_UNKNOWN = re.compile(r"([A-Za-z])(?:[^A-Za-z]|\1)*((?!\1)[A-Za-z])", re.IGNORECASE)
+# Étape 2, la première lettre, qui nomme l'inconnue : "3y + 1 = 0" -> 'y'
+UNKNOWN = re.compile(r"[A-Za-z]")
+
+# Étape 2, la première lettre, puis une lettre différente, casse comprise :
+# "x + y = 0" -> ('x', 'y'), "x = X" -> ('x', 'X')
+SECOND_UNKNOWN = re.compile(r"([A-Za-z])(?:[^A-Za-z]|\1)*((?!\1)[A-Za-z])")
 
 # Étape 2, des espaces entre deux nombres, qui les colleraient une fois retirées : "2 3" -> ' '
 MISSING_OPERATOR = re.compile(r"(?<=[\d.])\s+(?=[\d.])")
@@ -40,9 +44,10 @@ NORMALIZATIONS = [
     # Nettoyage
     # Espaces supprimés : "3 * X" -> "3*X"
     (r"\s+", ""),
-    # Exposant écrit en chiffres unicode : "3x²" -> "3x^2", "X¹⁰" -> "X^10", "X⁻¹" -> "X^-1"
-    (r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+", lambda run: "^" + run.group().translate(SUPERSCRIPTS)),
-    # Inconnue ramenée à X, quelle que soit la lettre : "y" -> "X"
+    # Exposant écrit en chiffres unicode : "3x²" -> "3x^2", "X¹⁰" -> "X^10", "X⁻¹" -> "X^-1",
+    # "X⁺²" -> "X^+2"
+    (r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+", lambda run: "^" + run.group().translate(SUPERSCRIPTS)),
+    # Inconnue ramenée à X en interne, son nom est gardé à part : "y" -> "X"
     (r"[A-Za-z]", "X"),
     # Nombres
     # Zéro manquant devant le point : ".5" -> "0.5"
@@ -85,8 +90,18 @@ def parse(source):
     check_characters(source)
     left_terms = read_terms(normalize(left))
     right_terms = read_terms(normalize(right))
-    coefficients = add_terms(left_terms, right_terms)
-    return reduce(coefficients)
+    coefficients, margins = add_terms(left_terms, right_terms)
+    name = unknown_name(source)
+    p, margins = reduce(coefficients, margins, name)
+    return p, margins, name
+
+
+# Sans lettre, "1 = 2", l'inconnue garde le nom du sujet.
+def unknown_name(source):
+    letter = UNKNOWN.search(source)
+    if letter is None:
+        return "X"
+    return letter.group()
 
 
 # doc: https://docs.python.org/3/library/re.html#re.Pattern.fullmatch
@@ -150,16 +165,20 @@ def read_term(term):
     sign = term[0]
     if sign not in "+-":
         raise ComputorError("missing sign before the term", 0, term)
-    coefficient, degree = multiply_factors(term)
+    coefficient, degree, roundings = multiply_factors(term)
     if sign == "-":
         coefficient = -coefficient
-    return coefficient, degree
+    return coefficient, degree, roundings
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
+# Nombre d'arrondis du coefficient, pour sa marge d'erreur : par nombre, un à la lecture
+# et un à la multiplication ; une puissance n multiplie par n l'erreur du nombre, plus un
+# arrondi : "0.1^3 * X" -> 6.
 def multiply_factors(term):
     coefficient = 1.0
     degree = 0
+    roundings = 0
     position = 1
     for piece in term[1:].split("*"):
         if piece[:1] in ("+", "-"):
@@ -176,11 +195,14 @@ def multiply_factors(term):
         number, number_exponent, exponent = factor.groups()
         if number is not None:
             coefficient = coefficient * read_number(number, number_exponent, position, term)
+            roundings = roundings + 2
+            if number_exponent is not None:
+                roundings = roundings + abs(int(number_exponent)) + 1
         else:
             degree = degree + int(exponent)
         position = position + len(piece) + 1
     check_magnitude(coefficient, 1, term)
-    return coefficient, degree
+    return coefficient, degree, roundings
 
 
 # formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
@@ -207,44 +229,52 @@ def check_magnitude(value, position, text):
         raise ComputorError("number too small", position, text)
 
 
+# Chaque coefficient vient avec sa marge : l'erreur d'arrondi qu'il peut contenir. Un
+# coefficient plus petit que sa marge est du bruit, il vaut 0 : 0.1 + 0.2 - 0.3 donne
+# 5.5e-17, pour une marge de 4.9e-16.
 def add_terms(left_terms, right_terms):
     positives = {}
     negatives = {}
-    for coefficient, degree in left_terms:
-        add_contribution(positives, negatives, degree, coefficient)
-    for coefficient, degree in right_terms:
-        add_contribution(positives, negatives, degree, -coefficient)
+    margins = {}
+    for coefficient, degree, roundings in left_terms:
+        add_contribution(positives, negatives, margins, degree, coefficient, roundings)
+    for coefficient, degree, roundings in right_terms:
+        add_contribution(positives, negatives, margins, degree, -coefficient, roundings)
 
     coefficients = {}
-    for degree in positives.keys() | negatives.keys():
+    for degree in margins:
         up = positives.get(degree, 0.0)
         down = negatives.get(degree, 0.0)
-        if cancels(up, down):
+        margins[degree] = margins[degree] + EPSILON * max(up, down)
+        if abs(up - down) <= margins[degree]:
             coefficients[degree] = 0.0
         else:
             coefficients[degree] = up - down
-    return coefficients
+    return coefficients, margins
 
 
-def add_contribution(positives, negatives, degree, coefficient):
-    if coefficient < 0:
-        negatives[degree] = negatives.get(degree, 0.0) - coefficient
-    else:
-        positives[degree] = positives.get(degree, 0.0) + coefficient
+# La marge grandit de l'erreur du terme, puis de l'arrondi de l'addition.
+def add_contribution(positives, negatives, margins, degree, coefficient, roundings):
+    sums = negatives if coefficient < 0 else positives
+    sums[degree] = sums.get(degree, 0.0) + abs(coefficient)
+    margin = margins.get(degree, 0.0) + roundings * EPSILON * abs(coefficient)
+    margins[degree] = margin + EPSILON * sums[degree]
 
 
-def reduce(coefficients):
+def reduce(coefficients, margins, name):
     degrees = [d for d, coefficient in coefficients.items() if coefficient != 0.0]
     if not degrees:
-        return []
+        return [], []
     if min(degrees) < 0:
-        message = "negative exponent X^%d after reduction" % min(degrees)
+        message = "negative exponent %s^%d after reduction" % (name, min(degrees))
         raise ComputorError(message)
     degree = max(degrees)
     if degree > MAX_DEGREE:
         raise ComputorError("reduced degree %d greater than %d" % (degree, MAX_DEGREE))
 
     reduced = []
+    reduced_margins = []
     for d in range(degree + 1):
         reduced.append(coefficients.get(d, 0.0))
-    return reduced
+        reduced_margins.append(margins.get(d, 0.0))
+    return reduced, reduced_margins

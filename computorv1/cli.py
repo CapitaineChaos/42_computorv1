@@ -20,6 +20,7 @@ def main(argv):
             if not answer(source):
                 status = 1
     except KeyboardInterrupt:
+        print(file=sys.stderr)
         return 130
     except BrokenPipeError:
         return close_quietly()
@@ -41,14 +42,14 @@ def read_stdin():
 
 def answer(source):
     try:
-        p = parse(source)
+        p, margins, name = parse(source)
     except ComputorError as error:
         print("computor: %s" % error, file=sys.stderr)
         if error.position is not None:
             text = error.text or source
             print("    %s\n    %s^" % (text, " " * error.position), file=sys.stderr)
         return False
-    print("\n".join(render(p, solve(p))), flush=True)
+    print("\n".join(render(p, solve(p, margins, name), name)), flush=True)
     return True
 
 

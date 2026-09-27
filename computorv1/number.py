@@ -1,3 +1,10 @@
+import sys
+
+# doc: https://docs.python.org/3/library/sys.html#sys.float_info
+# Un arrondi de float se trompe d'au plus EPSILON / 2 en relatif. Les marges d'erreur
+# comptent EPSILON par arrondi, le double du pire cas.
+EPSILON = sys.float_info.epsilon
+
 # doc: https://docs.python.org/3/tutorial/floatingpoint.html#tut-fp-issues
 FRACTION_TOLERANCE = 1e-12
 MAX_DENOMINATOR = 10000
@@ -11,11 +18,6 @@ MIN_VALUE = 1e-100
 # formule: https://docs.python.org/3/library/math.html#math.isclose
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
-
-
-# Deux apports opposés qui s'annulent, aux erreurs d'arrondi près : 0.3 et 0.1 + 0.2.
-def cancels(up, down):
-    return isclose(up, down)
 
 
 # code: https://en.wikipedia.org/w/index.php?title=Integer_square_root&oldid=1374012916#Algorithm_using_binary_search
