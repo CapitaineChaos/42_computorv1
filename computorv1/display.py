@@ -1,4 +1,19 @@
+import re
+import sys
+
 from .number import fmt, fraction, real
+
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+# Ce qui est coloré dans la forme réduite : signes, multiplications, exposants.
+COLORS = [
+    (re.compile(r"[+-]"), YELLOW),
+    (re.compile(r"\*"), GREEN),
+    (re.compile(r"\^-?\d+"), CYAN),
+]
 
 HEADLINES = {
     "all": "Any real number is a solution.",
@@ -9,6 +24,16 @@ HEADLINES = {
     "negative": "Discriminant is strictly negative, the two complex solutions are:",
     "high": "The polynomial degree is strictly greater than 2, I can't solve.",
 }
+
+
+# code: https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
+# doc: https://docs.python.org/3/library/io.html#io.IOBase.isatty
+def colorize(text):
+    if not sys.stdout.isatty():
+        return text
+    for pattern, color in COLORS:
+        text = pattern.sub(color + r"\g<0>" + RESET, text)
+    return text
 
 
 def reduced_form(p):
@@ -46,7 +71,7 @@ def root(r):
 
 
 def render(p, solution):
-    lines = ["Reduced form: " + reduced_form(p)]
+    lines = ["Reduced form: " + colorize(reduced_form(p))]
     if solution.kind not in ("all", "none"):
         lines.append("Polynomial degree: %d" % (len(p) - 1))
     lines += ["  " + step for step in solution.steps]

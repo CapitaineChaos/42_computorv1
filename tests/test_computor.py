@@ -1,4 +1,6 @@
 import io
+import os
+import pty
 import shutil
 import subprocess
 import sys
@@ -264,6 +266,33 @@ class EntryPoint(unittest.TestCase):
         self.assertEqual(result.returncode, 70)
         self.assertNotIn("Traceback", result.stderr)
         self.assertIn("internal error: RuntimeError: boum", result.stderr)
+
+
+class Colors(unittest.TestCase):
+    def test_no_colors_when_piped(self):
+        _, out, _ = run("5 * X^0 + 4 * X^1 = 0")
+        self.assertNotIn("\033", out)
+
+    def test_colors_on_a_terminal(self):
+        script = (
+            "import sys; sys.path.insert(0, %r); "
+            "from computorv1.display import colorize; print(colorize('4 * X^0 - 1 * X^1'))"
+        )
+        root = dirname(dirname(abspath(__file__)))
+        primary, secondary = pty.openpty()
+        result = subprocess.run(
+            [sys.executable, "-c", script % root],
+            stdout=secondary,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        os.close(secondary)
+        printed = os.read(primary, 4096).decode()
+        os.close(primary)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("\033[32m*\033[0m", printed)
+        self.assertIn("\033[36m^0\033[0m", printed)
+        self.assertIn("\033[33m-\033[0m", printed)
 
 
 class Streams(unittest.TestCase):

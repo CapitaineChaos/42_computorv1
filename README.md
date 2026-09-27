@@ -18,6 +18,9 @@ Discriminant is strictly positive, the two solutions are:
 
 Without an equation, equations are read from stdin, one per line.
 
+On a terminal the reduced form is coloured: signs yellow, `*` green, exponents cyan. Piped
+or redirected output carries no escape codes.
+
 ## Bonus
 
 Free form entry: `5 + 4 * X + X^2 = X^2`, `3x = 1`, `.5 = X`, `X * X = 4`, `-1 * -X = 0`,
