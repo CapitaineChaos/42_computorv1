@@ -215,8 +215,11 @@ computorv1/cli.py        argument or stdin, exit status
 computorv1/normalize.py  check and rewrite the text of the equation
 computorv1/parser.py     read the numbers of each term
 computorv1/reduce.py     sum the terms by degree, check degree and size
-computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
-computorv1/display.py    output text, number formatting, colours
+computorv1/errors.py     ComputorError, a refused input
+computorv1/solver.py     degree 0, 1 or 2: solutions and the values of the calculation
+computorv1/steps.py      calculation lines, written from those values
+computorv1/format.py     numbers as text: decimals, fractions, complex numbers
+computorv1/display.py    whole answer, colours
 computorv1/fraction.py   exact fractions, square root
 tests/test_computor.py   unittest suite
 tests/corpus.py          inputs taken from 456 GitHub repositories of 42 students

@@ -1,7 +1,8 @@
 import sys
 
 from .display import render
-from .parser import ComputorError, parse
+from .errors import ComputorError
+from .parser import parse
 from .solver import solve
 
 
@@ -49,7 +50,7 @@ def answer(source):
             text = error.text or source
             print("    %s\n    %s^" % (text, " " * error.position), file=sys.stderr)
         return False
-    print("\n".join(render(p, solve(p, name), name)), flush=True)
+    print("\n".join(render(p, solve(p), name)), flush=True)
     return True
 
 

@@ -12,9 +12,10 @@ from os.path import abspath, dirname, join
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from computorv1.cli import main  # noqa: E402
-from computorv1.display import fmt, fraction, terminates  # noqa: E402
+from computorv1.errors import ComputorError  # noqa: E402
+from computorv1.format import fmt, fraction, terminates  # noqa: E402
 from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
-from computorv1.parser import ComputorError, parse  # noqa: E402
+from computorv1.parser import parse  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
 
 
@@ -305,7 +306,7 @@ class EntryPoint(unittest.TestCase):
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
             solver = join(copy, "computorv1", "solver.py")
             source = open(solver).read()
-            header = "def solve(p, name):"
+            header = "def solve(p):"
             open(solver, "w").write(
                 source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )

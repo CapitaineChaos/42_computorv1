@@ -1,5 +1,5 @@
+from .errors import ComputorError
 from .fraction import Fraction
-from .normalize import ComputorError
 
 # Étape 5 : des termes lus des deux côtés au polynôme réduit, ax^0 + bx^1 + ... = 0.
 # [(3, 2), (-1, 1)] et [(1, 0)] -> [-1, -1, 3]

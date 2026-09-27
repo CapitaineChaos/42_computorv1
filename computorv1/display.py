@@ -1,7 +1,8 @@
 import re
 import sys
 
-from .fraction import Fraction
+from .format import fmt, root
+from .steps import steps
 
 YELLOW = "\033[33m"
 GREEN = "\033[32m"
@@ -28,41 +29,6 @@ HEADLINES = {
 # Noms des coefficients dans les lignes de calcul, que l'inconnue peut porter aussi.
 COEFFICIENTS = ("a", "b", "c")
 
-# Une fraction n'est écrite que si son dénominateur reste lisible : 1/3, pas 1/12347.
-MAX_DENOMINATOR = 10000
-
-
-# doc: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting
-def fmt(x):
-    x = float(x)
-    if x != 0.0 and abs(x) < 1e-6:
-        return "%g" % x
-    text = ("%.6f" % x).rstrip("0").rstrip(".")
-    return "0" if text == "-0" else text
-
-
-# Fraction à écrire : un résultat exact seulement, pas un float venu d'une racine
-# irrationnelle, et avec un dénominateur lisible.
-def fraction(x):
-    if not isinstance(x, Fraction) or x.denominator > MAX_DENOMINATOR:
-        return None
-    return x.numerator, x.denominator
-
-
-# formule: https://en.wikipedia.org/w/index.php?title=Repeating_decimal&oldid=1375973380#Every_rational_number_is_either_a_terminating_or_repeating_decimal
-def terminates(q):
-    for prime in (2, 5):
-        while q % prime == 0:
-            q //= prime
-    return q == 1
-
-
-def real(x):
-    f = fraction(x)
-    if f and not terminates(f[1]):
-        return "%d/%d ≈ %s" % (f[0], f[1], fmt(x))
-    return fmt(x)
-
 
 # code: https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
 # doc: https://docs.python.org/3/library/io.html#io.IOBase.isatty
@@ -87,35 +53,12 @@ def reduced_form(p, name):
     return text + " = 0"
 
 
-def ratio(x):
-    f = fraction(x)
-    if not f:
-        return fmt(x)
-    return str(f[0]) if f[1] == 1 else "%d/%d" % f
-
-
-def imaginary(y):
-    f = fraction(y)
-    if not f:
-        return fmt(y) + "i"
-    p, q = f
-    return ("" if p == 1 else str(p)) + "i" + ("" if q == 1 else "/%d" % q)
-
-
-# Solution complexe : couple (partie réelle, partie imaginaire).
-def root(r):
-    if not isinstance(r, tuple):
-        return real(r)
-    re, im = r
-    return "%s %s %s" % (ratio(re), "-" if im < 0 else "+", imaginary(abs(im)))
-
-
 def render(p, solution, name):
-    kind, roots, steps = solution
+    kind, roots, values = solution
     lines = ["Reduced form: " + colorize(reduced_form(p, name))]
     if kind not in ("all", "none"):
         lines.append("Polynomial degree: %d" % (len(p) - 1))
-    lines += ["  " + step for step in steps]
+    lines += ["  " + line for line in steps(kind, roots, values, name)]
     lines.append(HEADLINES[kind])
     for i, r in enumerate(roots):
         index = str(i + 1) if len(roots) > 1 else ""

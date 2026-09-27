@@ -1,5 +1,7 @@
 import re
 
+from .errors import ComputorError
+
 # Étapes 1 à 3 : du texte tapé à deux côtés réécrits, un terme signé par mot.
 # " 3x² - x = 1 " -> (' +3*X^2 -X^1', ' +1', 'x'), le dernier étant le nom de l'inconnue.
 
@@ -68,13 +70,6 @@ NORMALIZATIONS = [
     # Espace devant chaque signe sauf après '*' ou '^' : "-1*-X^1" et "X^-1" restent un terme
     (r"(?<![*^])[+-]", r" \g<0>"),
 ]
-
-
-class ComputorError(Exception):
-    def __init__(self, message, position=None, text=None):
-        super().__init__(message)
-        self.position = position
-        self.text = text
 
 
 def normalize(source):

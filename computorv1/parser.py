@@ -1,7 +1,8 @@
 import re
 
+from .errors import ComputorError
 from .fraction import Fraction, from_decimal
-from .normalize import ComputorError, normalize
+from .normalize import normalize
 from .reduce import check_magnitude, reduce
 
 # Au-delà, une puissance exacte serait trop longue à calculer : 10^999999999 a un milliard
