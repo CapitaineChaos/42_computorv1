@@ -4,6 +4,12 @@ from os.path import dirname, realpath
 
 sys.path.insert(0, dirname(realpath(__file__)))
 
-from computorv1.cli import main
+from computorv1.cli import main  # noqa: E402
 
-sys.exit(main())
+# doc: https://docs.python.org/3/library/exceptions.html#Exception
+# doc: https://man.freebsd.org/cgi/man.cgi?query=sysexits
+try:
+    sys.exit(main(sys.argv[1:]))
+except Exception as error:
+    print("computor: internal error: %s: %s" % (type(error).__name__, error), file=sys.stderr)
+    sys.exit(70)

@@ -1,43 +1,45 @@
-PYTHON      ?= python3
-VENV        := .venv
-VENV_PYTHON := $(VENV)/bin/python
-STAMP       := $(VENV)/.installed
-EQ          ?=
-
-PY = $(shell [ -x $(VENV_PYTHON) ] && echo $(VENV_PYTHON) || echo $(PYTHON))
+SHM     := /dev/shm/computorv1
+VENV    := $(SHM)/.venv
+SRC     := computor computorv1 tests
+RUFF    := $(VENV)/bin/ruff
+EQ      ?=
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run test lint format clean fclean re
+.PHONY: help sync venv run test lint format clean fclean re
 
 help:
 	@grep -E '^[a-z]+:' Makefile | cut -d: -f1 | tr '\n' ' '
 	@echo
 
-venv: $(STAMP)
+sync:
+	@mkdir -p $(SHM)
+	@rsync -a --delete --exclude __pycache__ $(SRC) $(SHM)/
 
-$(STAMP): requirements-dev.txt
-	$(PYTHON) -m venv $(VENV)
-	$(VENV_PYTHON) -m pip install -q -r requirements-dev.txt
+venv: $(RUFF)
+
+$(RUFF): requirements.txt
+	rm -rf $(VENV)
+	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install -q -r requirements.txt
 	@touch $@
 
-run:
-	@$(PY) ./computor $(if $(EQ),"$(EQ)")
+run: sync
+	@cd $(SHM) && python3 ./computor $(if $(EQ),"$(EQ)")
 
-test:
-	$(PY) -m unittest discover -s tests -v
+test: sync
+	cd $(SHM) && python3 -m unittest discover -s tests -v
 
 lint: venv
-	$(VENV_PYTHON) -m ruff check computorv1 tests computor
-	$(VENV_PYTHON) -m ruff format --check computorv1 tests computor
+	$(RUFF) check --no-cache $(SRC)
 
 format: venv
-	$(VENV_PYTHON) -m ruff format computorv1 tests computor
+	$(RUFF) check --no-cache --fix-only $(SRC)
+	$(RUFF) format --no-cache $(SRC)
 
 clean:
-	@find . -name __pycache__ -type d -prune -exec rm -rf {} +
-	@rm -rf .ruff_cache .coverage
+	rm -rf $(SHM)/*/__pycache__
 
-fclean: clean
-	@rm -rf $(VENV)
+fclean:
+	rm -rf $(SHM)
 
-re: fclean venv
+re: fclean sync venv

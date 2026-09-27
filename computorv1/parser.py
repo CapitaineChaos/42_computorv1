@@ -1,195 +1,250 @@
-"""Free form equation parsing.
-
-    equation := expr '=' expr
-    expr     := term (('+' | '-') term)*
-    term     := unary (('*' | '/')? unary)*
-    unary    := ('+' | '-') unary | power
-    power    := atom ('^' integer)?
-    atom     := number | variable | '(' expr ')'
-
-Juxtaposition means multiplication: "2x", "x(x + 1)", "(x - 1)(x + 1)".
-Polynomials are lists of Rational indexed by degree, trailing zeros dropped.
-"""
-
 import re
-from itertools import zip_longest
 
-from .rational import ONE, ZERO, Rational
+from .number import MAX_VALUE, MIN_VALUE, cancels
 
-_TOKEN = re.compile(r"(\d+(?:\.\d+)?|\.\d+)|([A-Za-z]\w*)|([-+*/^()=])|(\S)", re.ASCII)
-_NAMES = {"num": "a number", "var": "a variable", "end": "end of input"}
+MAX_DEGREE = 10
+
+# Étape 1, un seul '=' avec deux côtés non vides : " 3x + 1 = 4 " -> ('3x + 1 ', '4 ')
+SIDES = re.compile(r"\s*([^=\s][^=]*)=\s*([^=\s][^=]*)")
+
+# Les onze caractères en exposant unicode, et leur équivalent normal.
+SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+
+# Étape 2, tout caractère autre que chiffre, lettre, exposant, point, + - * ^ = ou espace
+FORBIDDEN = re.compile(r"[^0-9A-Za-z⁰¹²³⁴⁵⁶⁷⁸⁹⁻.+\-*^=\s]")
+
+# Étape 2, une parenthèse, qu'il faudrait développer : "2(x+1)" -> '('
+PARENTHESIS = re.compile(r"[()]")
+
+# Étape 2, la première lettre, puis une lettre différente : "x + y = 0" -> ('x', 'y')
+SECOND_UNKNOWN = re.compile(r"([A-Za-z])(?:[^A-Za-z]|\1)*((?!\1)[A-Za-z])", re.IGNORECASE)
+
+# Étape 2, des espaces entre deux nombres, qui les colleraient une fois retirées : "2 3" -> ' '
+MISSING_OPERATOR = re.compile(r"(?<=[\d.])\s+(?=[\d.])")
+
+# Étape 2, un exposant décimal, que le sujet n'autorise pas : "X^1.5" -> '^1.'
+BAD_EXPONENT = re.compile(r"\^\s*[+-]?\d+\s*\.")
+
+
+# Étape 3, réécritures appliquées dans l'ordre à chaque côté.
+
+
+def merge_signs(signs):
+    minus_count = signs.group().count("-")
+    if minus_count % 2 == 1:
+        return "-"
+    return "+"
+
+
+NORMALIZATIONS = [
+    # Nettoyage
+    # Espaces supprimés : "3 * X" -> "3*X"
+    (r"\s+", ""),
+    # Exposant écrit en chiffres unicode : "3x²" -> "3x^2", "X¹⁰" -> "X^10", "X⁻¹" -> "X^-1"
+    (r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+", lambda run: "^" + run.group().translate(SUPERSCRIPTS)),
+    # Inconnue ramenée à X, quelle que soit la lettre : "y" -> "X"
+    (r"[A-Za-z]", "X"),
+    # Nombres
+    # Zéro manquant devant le point : ".5" -> "0.5"
+    (r"(?<!\d)\.(?=\d)", "0."),
+    # Point final sans décimale : "5." -> "5"
+    (r"(\d)\.(?!\d)", r"\1"),
+    # Termes
+    # Nombre après X sans opérateur : "X3" -> "X*3"
+    (r"X(?=\d)", "X*"),
+    # Exposant absent, X non suivi de '^' : "X" -> "X^1", "XX" -> "X^1X^1"
+    (r"X(?!\^)", "X^1"),
+    # Multiplication implicite, chiffre suivi de X : "3X^1" -> "3*X^1", "X^1X^1" -> "X^1*X^1"
+    (r"(\d)X", r"\1*X"),
+    # Signes
+    # Signes consécutifs fusionnés : "+-" -> "-", "--" -> "+"
+    (r"[+-]{2,}", merge_signs),
+    # Signe explicite en tête du côté : "X^1" -> "+X^1"
+    (r"^(?=[\dX])", "+"),
+    # Espace devant chaque signe sauf après '*' ou '^' : "-1*-X^1" et "X^-1" restent un terme
+    (r"(?<![*^])[+-]", r" \g<0>"),
+]
+
+
+# Étape 4, lecture d'un côté normalisé.
+
+# Un facteur, nombre ou X, avec un seul exposant :
+# "9.3" -> ('9.3', None, None), "2^3" -> ('2', '3', None), "X^-1" -> (None, None, '-1')
+FACTOR = re.compile(r"(\d+(?:\.\d+)?)(?:\^([+-]?\d+))?|X\^([+-]?\d+)")
 
 
 class ComputorError(Exception):
-    """Input error, `position` being an index in the source."""
-
-    def __init__(self, message, position):
+    def __init__(self, message, position=None, text=None):
         super().__init__(message)
-        self.message = message
         self.position = position
-
-
-def tokenize(source):
-    tokens = []
-    for match in _TOKEN.finditer(source):
-        number, name, symbol, unknown = match.groups()
-        if number:
-            tokens.append(("num", Rational.parse(number), match.start()))
-        elif name:
-            if len(name) > 1:
-                raise ComputorError(
-                    "unknown name '%s', a variable is a single letter" % name, match.start()
-                )
-            tokens.append(("var", name.upper(), match.start()))
-        elif symbol:
-            tokens.append((symbol, None, match.start()))
-        else:
-            raise ComputorError("unexpected character '%s'" % unknown, match.start())
-    tokens.append(("end", None, len(source)))
-    return tokens
-
-
-def add(left, right):
-    return trim([a + b for a, b in zip_longest(left, right, fillvalue=ZERO)])
-
-
-def sub(left, right):
-    return trim([a - b for a, b in zip_longest(left, right, fillvalue=ZERO)])
-
-
-def mul(left, right):
-    if not left or not right:
-        return []
-    out = [ZERO] * (len(left) + len(right) - 1)
-    for i, a in enumerate(left):
-        for j, b in enumerate(right):
-            out[i + j] = out[i + j] + a * b
-    return trim(out)
-
-
-def trim(poly):
-    while poly and poly[-1].is_zero:
-        poly.pop()
-    return poly
-
-
-class _Parser:
-    def __init__(self, tokens):
-        self.tokens = tokens
-        self.index = 0
-        self.variable = None
-
-    @property
-    def token(self):
-        return self.tokens[self.index]
-
-    def eat(self):
-        self.index += 1
-        return self.tokens[self.index - 1]
-
-    def equation(self):
-        left = self.expr()
-        kind, _, position = self.token
-        if kind != "=":
-            raise ComputorError(
-                "missing '=', an equation has two sides"
-                if kind == "end"
-                else "expected '=' but found %s" % _name(self.token),
-                position,
-            )
-        self.eat()
-        right = self.expr()
-        if self.token[0] != "end":
-            raise ComputorError("unexpected %s" % _name(self.token), self.token[2])
-        return left, right, self.variable or "X"
-
-    def expr(self):
-        result = self.term()
-        while self.token[0] in "+-":
-            result = add(result, self.term()) if self.eat()[0] == "+" else sub(result, self.term())
-        return result
-
-    def term(self):
-        result = self.unary()
-        while True:
-            kind, _, position = self.token
-            if kind in "*/":
-                self.eat()
-                right = self.unary()
-                result = mul(result, right) if kind == "*" else self.div(result, right, position)
-            elif kind in ("num", "var", "("):
-                result = mul(result, self.unary())
-            else:
-                return result
-
-    def div(self, left, right, position):
-        if not right:
-            raise ComputorError("division by zero", position)
-        if len(right) > 1:
-            raise ComputorError("division by a variable is not a polynomial", position)
-        return trim([c / right[0] for c in left])
-
-    def unary(self):
-        if self.token[0] in "+-":
-            return self.unary() if self.eat()[0] == "+" else [-c for c in self.unary()]
-        return self.power()
-
-    def power(self):
-        base = self.atom()
-        if self.token[0] != "^":
-            return base
-        caret = self.eat()[2]
-        result = [ONE]
-        for _ in range(self.exponent(caret)):
-            result = mul(result, base)
-        if self.token[0] == "^":
-            raise ComputorError("chained '^' is ambiguous, use parentheses", self.token[2])
-        return result
-
-    def exponent(self, caret):
-        negative = False
-        while self.token[0] in "+-":
-            negative ^= self.eat()[0] == "-"
-        kind, value, position = self.token
-        if kind != "num":
-            raise ComputorError("expected an integer exponent after '^'", position)
-        self.eat()
-        if value.den != 1:
-            raise ComputorError("exponent %s is not an integer" % value, position)
-        if negative and not value.is_zero:
-            raise ComputorError("negative exponent is not a polynomial", caret)
-        if value.num > 1000:
-            raise ComputorError("exponent %s is out of range" % value, position)
-        return value.num
-
-    def atom(self):
-        kind, value, position = self.token
-        if kind == "num":
-            self.eat()
-            return trim([value])
-        if kind == "var":
-            self.eat()
-            if self.variable is None:
-                self.variable = value
-            elif self.variable != value:
-                raise ComputorError(
-                    "two unknowns, '%s' and '%s'" % (self.variable, value), position
-                )
-            return [ZERO, ONE]
-        if kind == "(":
-            self.eat()
-            inner = self.expr()
-            if self.token[0] != ")":
-                raise ComputorError("unclosed '(', expected ')'", self.token[2])
-            self.eat()
-            return inner
-        raise ComputorError("expected an operand but found %s" % _name(self.token), position)
-
-
-def _name(token):
-    return _NAMES.get(token[0], "'%s'" % token[0])
+        self.text = text
 
 
 def parse(source):
-    """source -> (left side, right side, variable name)"""
-    return _Parser(tokenize(source)).equation()
+    left, right = split_sides(source)
+    check_characters(source)
+    left_terms = read_terms(normalize(left))
+    right_terms = read_terms(normalize(right))
+    coefficients = add_terms(left_terms, right_terms)
+    return reduce(coefficients)
+
+
+# doc: https://docs.python.org/3/library/re.html#re.Pattern.fullmatch
+def split_sides(source):
+    sides = SIDES.fullmatch(source)
+    if sides is None:
+        message = "expected one '=' between two sides"
+        raise ComputorError(message, equals_error_position(source))
+    return sides.group(1), sides.group(2)
+
+
+def equals_error_position(source):
+    first = source.find("=")
+    if first == -1:
+        return len(source)
+    second = source.find("=", first + 1)
+    if second == -1:
+        return first
+    return second
+
+
+# doc: https://docs.python.org/3/library/re.html#re.Pattern.search
+def check_characters(source):
+    parenthesis = PARENTHESIS.search(source)
+    if parenthesis is not None:
+        message = "parentheses are not supported, expand the product first"
+        raise ComputorError(message, parenthesis.start())
+    forbidden = FORBIDDEN.search(source)
+    if forbidden is not None:
+        raise ComputorError("unexpected character '%s'" % forbidden.group(), forbidden.start())
+    missing_operator = MISSING_OPERATOR.search(source)
+    if missing_operator is not None:
+        raise ComputorError("missing operator between numbers", missing_operator.start())
+    bad_exponent = BAD_EXPONENT.search(source)
+    if bad_exponent is not None:
+        raise ComputorError("exponent must be an integer", bad_exponent.start())
+    second = SECOND_UNKNOWN.search(source)
+    if second is not None:
+        first, other = second.groups()
+        message = "second unknown '%s', '%s' is already the unknown" % (other, first)
+        raise ComputorError(message, second.start(2))
+
+
+# doc: https://docs.python.org/3/library/re.html#re.sub
+def normalize(side):
+    text = side
+    for pattern, replacement in NORMALIZATIONS:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
+# doc: https://docs.python.org/3/library/stdtypes.html#str.split
+def read_terms(text):
+    terms = []
+    for term in text.split():
+        terms.append(read_term(term))
+    return terms
+
+
+def read_term(term):
+    sign = term[0]
+    if sign not in "+-":
+        raise ComputorError("missing sign before the term", 0, term)
+    coefficient, degree = multiply_factors(term)
+    if sign == "-":
+        coefficient = -coefficient
+    return coefficient, degree
+
+
+# formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
+def multiply_factors(term):
+    coefficient = 1.0
+    degree = 0
+    position = 1
+    for piece in term[1:].split("*"):
+        if piece[:1] in ("+", "-"):
+            if piece[0] == "-":
+                coefficient = -coefficient
+            piece = piece[1:]
+            position = position + 1
+        factor = FACTOR.fullmatch(piece)
+        if factor is None:
+            if piece.count("^") > 1:
+                message = "chained exponent is ambiguous, 2^3^2 is either 64 or 512"
+                raise ComputorError(message, position, term)
+            raise ComputorError("invalid factor", position, term)
+        number, number_exponent, exponent = factor.groups()
+        if number is not None:
+            coefficient = coefficient * read_number(number, number_exponent, position, term)
+        else:
+            degree = degree + int(exponent)
+        position = position + len(piece) + 1
+    check_magnitude(coefficient, 1, term)
+    return coefficient, degree
+
+
+# formule: https://en.wikipedia.org/w/index.php?title=Exponentiation&oldid=1375737168#Identities_and_properties
+def read_number(number, exponent, position, text):
+    value = float(number)
+    if exponent is not None:
+        exponent = int(exponent)
+        if value == 0.0 and exponent < 0:
+            raise ComputorError("division by zero", position, text)
+        try:
+            value = value**exponent
+        except OverflowError:
+            raise ComputorError("number too large", position, text) from None
+    if number.strip("0.") == "":
+        return value
+    check_magnitude(value, position, text)
+    return value
+
+
+def check_magnitude(value, position, text):
+    if abs(value) > MAX_VALUE:
+        raise ComputorError("number too large", position, text)
+    if value != 0.0 and abs(value) < MIN_VALUE:
+        raise ComputorError("number too small", position, text)
+
+
+def add_terms(left_terms, right_terms):
+    positives = {}
+    negatives = {}
+    for coefficient, degree in left_terms:
+        add_contribution(positives, negatives, degree, coefficient)
+    for coefficient, degree in right_terms:
+        add_contribution(positives, negatives, degree, -coefficient)
+
+    coefficients = {}
+    for degree in positives.keys() | negatives.keys():
+        up = positives.get(degree, 0.0)
+        down = negatives.get(degree, 0.0)
+        if cancels(up, down):
+            coefficients[degree] = 0.0
+        else:
+            coefficients[degree] = up - down
+    return coefficients
+
+
+def add_contribution(positives, negatives, degree, coefficient):
+    if coefficient < 0:
+        negatives[degree] = negatives.get(degree, 0.0) - coefficient
+    else:
+        positives[degree] = positives.get(degree, 0.0) + coefficient
+
+
+def reduce(coefficients):
+    degrees = [d for d, coefficient in coefficients.items() if coefficient != 0.0]
+    if not degrees:
+        return []
+    if min(degrees) < 0:
+        message = "negative exponent X^%d after reduction" % min(degrees)
+        raise ComputorError(message)
+    degree = max(degrees)
+    if degree > MAX_DEGREE:
+        raise ComputorError("reduced degree %d greater than %d" % (degree, MAX_DEGREE))
+
+    reduced = []
+    for d in range(degree + 1):
+        reduced.append(coefficients.get(d, 0.0))
+    return reduced
