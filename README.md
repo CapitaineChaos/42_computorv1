@@ -80,7 +80,7 @@ says so: `(b is the unknown of the equation, not the coefficient b)`.
 | `2^3^2 = x`        | chained exponent is ambiguous            | see below                                  |
 | `X^1.5 = 1`        | exponent must be an integer              | the subject has integer exponents only     |
 | `x^-1 = 1`         | negative exponent after reduction        | not a polynomial                           |
-| `x^11 = 1`         | reduced degree greater than 10           | `MAX_DEGREE` in `parser.py`                |
+| `x^11 = 1`         | reduced degree greater than 10           | `MAX_DEGREE` in `reduce.py`                |
 | `2 3 = x`          | missing operator between numbers         | removing spaces would read `23`            |
 | `10^101 * X = 1`   | number too large                         | see below                                  |
 | `2^1001 = x`       | exponent greater than 1000               | see below                                  |
@@ -92,7 +92,7 @@ says so: `(b is the unknown of the equation, not the coefficient b)`.
 - **Negative exponents** are read, and refused only if a negative degree is left after
   reduction: `x^-1 + x = x^-1` is `x = 0`.
 - **Magnitude**: a number or a reduced coefficient above `1e100` or, except zero, below
-  `1e-100` is refused (`MAX_VALUE`, `MIN_VALUE` in `parser.py`). The calculation is exact
+  `1e-100` is refused (`MAX_VALUE`, `MIN_VALUE` in `reduce.py`). The calculation is exact
   at any size, but results are printed through floats, which stop at about `1.8e308`:
   within those bounds, `b²`, `-Δ / 4a` or `-b / 2a` always fit.
 - **Exponent of a number**: above `1000` (`MAX_EXPONENT` in `parser.py`) it is refused.
@@ -110,8 +110,8 @@ computor: unexpected character '%'
 
 ## How the parser works
 
-`normalize.py` works on text, steps 1 and 2; `parser.py` turns that text into numbers,
-steps 3 and 4.
+`normalize.py` works on text, steps 1 and 2; `parser.py` reads the numbers, step 3;
+`reduce.py` builds the polynomial, step 4. `parse` in `parser.py` chains the four.
 
 1. **Check** (`split_sides`, `check_characters`): exactly one `=` with something on each
    side, then the refused cases above, on the raw text so the `^` points at what was typed.
@@ -213,7 +213,8 @@ change. A function without such a comment was written for this project.
 computor                 entry point, turns a crash into exit status 70
 computorv1/cli.py        argument or stdin, exit status
 computorv1/normalize.py  check and rewrite the text of the equation
-computorv1/parser.py     read the numbers, reduce
+computorv1/parser.py     read the numbers of each term
+computorv1/reduce.py     sum the terms by degree, check degree and size
 computorv1/solver.py     degree 0, 1 or 2: solutions and calculation lines
 computorv1/display.py    output text, number formatting, colours
 computorv1/fraction.py   exact fractions, square root

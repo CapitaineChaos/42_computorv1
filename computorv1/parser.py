@@ -2,29 +2,24 @@ import re
 
 from .fraction import Fraction, from_decimal
 from .normalize import ComputorError, normalize
-
-MAX_DEGREE = 10
-
-# Les calculs sont exacts, mais l'affichage passe par des floats : hors de ces bornes,
-# b², -Δ / 4a ou -b / 2a dépasseraient leur capacité, environ 1.8e308.
-MAX_VALUE = Fraction(10**100)
-MIN_VALUE = Fraction(1, 10**100)
+from .reduce import check_magnitude, reduce
 
 # Au-delà, une puissance exacte serait trop longue à calculer : 10^999999999 a un milliard
 # de chiffres.
 MAX_EXPONENT = 1000
 
-# Étape 4, lecture des côtés normalisés, puis réduction.
+# Étape 4, lecture des côtés normalisés : un couple (coefficient, degré) par terme.
+# " +3*X^2 -X^1" -> [(3, 2), (-1, 1)]
 
 # Un facteur, nombre ou X, avec un seul exposant :
 # "9.3" -> ('9.3', None, None), "2^3" -> ('2', '3', None), "X^-1" -> (None, None, '-1')
 FACTOR = re.compile(r"(\d+(?:\.\d+)?)(?:\^([+-]?\d+))?|X\^([+-]?\d+)")
 
 
+# Étapes 1 à 5 : texte tapé -> coefficients réduits et nom de l'inconnue.
 def parse(source):
     left, right, name = normalize(source)
-    coefficients = add_terms(read_terms(left), read_terms(right))
-    return reduce(coefficients, name), name
+    return reduce(read_terms(left), read_terms(right), name), name
 
 
 # doc: https://docs.python.org/3/library/stdtypes.html#str.split
@@ -85,39 +80,3 @@ def read_number(number, exponent, position, text):
         value = value**exponent
     check_magnitude(value, position, text)
     return value
-
-
-def check_magnitude(value, position=None, text=None):
-    if abs(value) > MAX_VALUE:
-        raise ComputorError("number too large", position, text)
-    if value != 0 and abs(value) < MIN_VALUE:
-        raise ComputorError("number too small", position, text)
-
-
-# Somme exacte des termes de même degré, ceux de droite soustraits : 0.1 + 0.2 - 0.3 = 0.
-def add_terms(left_terms, right_terms):
-    coefficients = {}
-    for coefficient, degree in left_terms:
-        coefficients[degree] = coefficients.get(degree, Fraction(0)) + coefficient
-    for coefficient, degree in right_terms:
-        coefficients[degree] = coefficients.get(degree, Fraction(0)) - coefficient
-    return coefficients
-
-
-def reduce(coefficients, name):
-    degrees = [d for d, coefficient in coefficients.items() if coefficient != 0]
-    if not degrees:
-        return []
-    if min(degrees) < 0:
-        message = "negative exponent %s^%d after reduction" % (name, min(degrees))
-        raise ComputorError(message)
-    degree = max(degrees)
-    if degree > MAX_DEGREE:
-        raise ComputorError("reduced degree %d greater than %d" % (degree, MAX_DEGREE))
-
-    reduced = []
-    for d in range(degree + 1):
-        coefficient = coefficients.get(d, Fraction(0))
-        check_magnitude(coefficient)
-        reduced.append(coefficient)
-    return reduced
