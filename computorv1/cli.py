@@ -1,4 +1,5 @@
 import sys
+import os
 
 from .display import render
 from .errors import ComputorError
@@ -7,10 +8,8 @@ from .solver import solve
 
 
 def main(argv):
-    if argv:
-        sources = [" ".join(argv)]
-    else:
-        sources = read_stdin()
+    sources = argv if argv else read_stdin()
+
     status = 0
     first = True
     try:
@@ -20,11 +19,18 @@ def main(argv):
             first = False
             if not answer(source):
                 status = 1
+
+    # https://docs.python.org/fr/3.14/builtins/exceptions.html#KeyboardInterrupt
     except KeyboardInterrupt:
         print(file=sys.stderr)
         return 130
+
+    # https://docs.python.org/fr/3.14/library/signal.html#note-on-sigpipe
     except BrokenPipeError:
-        return close_quietly()
+        devnull = os.open("/dev/null", "w")
+        os.dup2(devnull, sys.stdout.fileno())
+        return 1
+
     if first:
         print("computor: no equation", file=sys.stderr)
         return 1
@@ -45,17 +51,10 @@ def answer(source):
     try:
         p, name = parse(source)
     except ComputorError as error:
-        print("computor: %s" % error, file=sys.stderr)
+        print(f"computor: {error}", file=sys.stderr)
         if error.position is not None:
             text = error.text or source
-            print("    %s\n    %s^" % (text, " " * error.position), file=sys.stderr)
+            print(f"    {text}\n    {' ' * error.position}", file=sys.stderr)
         return False
     print("\n".join(render(p, solve(p), name)), flush=True)
     return True
-
-
-# doc: https://docs.python.org/3/library/signal.html#note-on-sigpipe
-def close_quietly():
-    devnull = open("/dev/null", "w")
-    sys.stdout = devnull
-    return 120

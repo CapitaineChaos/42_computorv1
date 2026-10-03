@@ -11,8 +11,8 @@ MAX_DENOMINATOR = 10000
 def fmt(x):
     x = float(x)
     if x != 0.0 and abs(x) < 1e-6:
-        return "%g" % x
-    text = ("%.6f" % x).rstrip("0").rstrip(".")
+        return f"{x:g}"
+    text = (f"%.6f" % x).rstrip("0").rstrip(".")
     return "0" if text == "-0" else text
 
 
@@ -35,20 +35,20 @@ def terminates(q):
 def real(x):
     f = fraction(x)
     if f and not terminates(f[1]):
-        return "%d/%d ≈ %s" % (f[0], f[1], fmt(x))
+        return f"{f[0]}/{f[1]} ≈ {fmt(x)}"
     return fmt(x)
 
 
 # Nombre négatif entre parenthèses, dans une formule : 4 * (-9.3) * 4.
 def wrap(x):
-    return "(%s)" % real(x) if x < 0 else real(x)
+    return f"({real(x)})" if x < 0 else real(x)
 
 
 def ratio(x):
     f = fraction(x)
     if not f:
         return fmt(x)
-    return str(f[0]) if f[1] == 1 else "%d/%d" % f
+    return str(f[0]) if f[1] == 1 else f"{f[0]}/{f[1]}"
 
 
 def imaginary(y):
@@ -56,7 +56,7 @@ def imaginary(y):
     if not f:
         return fmt(y) + "i"
     p, q = f
-    return ("" if p == 1 else str(p)) + "i" + ("" if q == 1 else "/%d" % q)
+    return ("" if p == 1 else str(p)) + "i" + ("" if q == 1 else f"/{q}")
 
 
 # Solution complexe : couple (partie réelle, partie imaginaire).
@@ -64,4 +64,4 @@ def root(r):
     if not isinstance(r, tuple):
         return real(r)
     re, im = r
-    return "%s %s %s" % (ratio(re), "-" if im < 0 else "+", imaginary(abs(im)))
+    return f"{ratio(re)} { '-' if im < 0 else '+' } {imaginary(abs(im))}"

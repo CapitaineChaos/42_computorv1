@@ -45,7 +45,7 @@ def reduced_form(p, name):
         return "0 * %s^0 = 0" % name
     text = ""
     for degree, c in enumerate(p):
-        term = "%s * %s^%d" % (fmt(abs(c)), name, degree)
+        term = f"{fmt(abs(c))} * {name}^{degree}"
         if degree == 0:
             text = ("-" if c < 0 else "") + term
         else:
@@ -57,12 +57,12 @@ def render(p, solution, name):
     kind, roots, values = solution
     lines = ["Reduced form: " + colorize(reduced_form(p, name))]
     if kind not in ("all", "none"):
-        lines.append("Polynomial degree: %d" % (len(p) - 1))
+        lines.append(f"Polynomial degree: {len(p) - 1}")
     lines += ["  " + line for line in steps(kind, roots, values, name)]
     lines.append(HEADLINES[kind])
     for i, r in enumerate(roots):
         index = str(i + 1) if len(roots) > 1 else ""
-        lines.append("%s%s = %s" % (name, index, root(r)))
+        lines.append(f"{name}{index} = {root(r)}")
     if roots and name in COEFFICIENTS:
-        lines.append("(%s is the unknown of the equation, not the coefficient %s)" % (name, name))
+        lines.append(f"({name} is the unknown of the equation, not the coefficient {name})")
     return lines
