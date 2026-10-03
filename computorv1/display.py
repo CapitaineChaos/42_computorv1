@@ -26,7 +26,6 @@ HEADLINES = {
     "high": "The polynomial degree is strictly greater than 2, I can't solve.",
 }
 
-# Noms des coefficients dans les lignes de calcul, que l'inconnue peut porter aussi.
 COEFFICIENTS = ("a", "b", "c")
 
 

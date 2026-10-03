@@ -11,12 +11,12 @@ def main(argv):
     sources = argv if argv else read_stdin()
 
     status = 0
-    first = True
+    position = 0
+
     try:
         for source in sources:
-            if not first:
-                print()
-            first = False
+            position += 1
+            print(f"computor: equation {position}: {source}\n")
             if not answer(source):
                 status = 1
 
@@ -31,7 +31,7 @@ def main(argv):
         os.dup2(devnull, sys.stdout.fileno())
         return 1
 
-    if first:
+    if position == 0:
         print("computor: no equation", file=sys.stderr)
         return 1
     return status
@@ -52,9 +52,6 @@ def answer(source):
         p, name = parse(source)
     except ComputorError as error:
         print(f"computor: {error}", file=sys.stderr)
-        if error.position is not None:
-            text = error.text or source
-            print(f"    {text}\n    {' ' * error.position}", file=sys.stderr)
         return False
     print("\n".join(render(p, solve(p), name)), flush=True)
     return True

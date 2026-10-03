@@ -23,12 +23,18 @@
 ## Opérations mathématiques
 
 - `__add__(self, other)` : Addition `(+)`
+- `__radd__(self, other)` : Addition avec l'objet à droite
 - `__sub__(self, other)` : Soustraction `(-)`
+- `__rsub__(self, other)` : Soustraction avec l'objet à droite
 - `__mul__(self, other)` : Multiplication `(*)`
+- `__rmul__(self, other)` : Multiplication avec l'objet à droite
 - `__truediv__(self, other)` : Division `(/)`
+- `__rtruediv__(self, other)` : Division avec l'objet à droite
 - `__floordiv__(self, other)` : Division entière `(//)`
 - `__mod__(self, other)` : Modulo `(%)`è`
 - `__pow__(self, other)` : Puissance `(**)`
+- `__abs__(self)` : Valeur absolue
+- `__neg__(self)` : Opposé
 
 ## Comlportement
 
@@ -37,6 +43,12 @@
 - `__setitem__(self, key, value)` : Modifier une valeur avec des crochets : `objet[key] = value`.`
 - `__delitem__(self, key)` : Supprimer un élément avec `del objet[key]`.`
 - `__contains__(self, item)` : Utiliser le mot-clé in `(if item in objet:)`
+
+## Types
+
+- `__float__(self)` : Convertir en float
+- `__int__(self)` : Convertir en int
+
 
 ## Gestion de contexte
 Pour être utilisé proprement avec le mot-clé with
