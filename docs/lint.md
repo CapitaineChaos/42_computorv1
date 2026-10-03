@@ -1,7 +1,20 @@
 # Lint
 
-Ruff is configured in `pyproject.toml`: `line-length = 100` (flake8 allows 79 by
-default, ruff 88) and `select = ["E", "F", "W", "I", "B"]`, the rules checked.
+[Ruff linting](https://blog.stephane-robert.info/docs/developper/programmation/python/ruff/)
+
+
+| Préfixe |	Origine	| Vérification |
+|-|-|-|
+| E |	pycodestyle |	Erreurs de style (espaces, indentation) |
+| W |	pycodestyle |	Avertissements de style |
+| F |	Pyflakes |	Erreurs logiques (variables non utilisées, imports manquants) |
+| I |	isort |	Organisation des imports |
+| B |	flake8-bugbear |	Bugs potentiels et mauvaises pratiques |
+| UP |	pyupgrade |	Syntaxe obsolète à moderniser |
+| SIM |	flake8-simplify |	Code qui peut être simplifié |
+| D |	pydocstyle |	Docstrings manquantes ou mal formatées |
+| N |	pep8-naming |	Conventions de nommage |
+| S |	flake8-bandit |	Problèmes de sécurité |
 
 ### Reading a rule code
 
