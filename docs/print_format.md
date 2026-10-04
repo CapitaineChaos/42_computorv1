@@ -95,7 +95,7 @@ print(f"{heure:02d}:{minute:02d}")
 
 ### Le signe + ou - avec l'alignement (=)
 
-L'alignement = est spécifique aux nombres. Il permet de forcer le signe (+ ou -) à se positionner tout à gauche, et le nombre tout à droite, en remplissant l'espace vide entre les deux.
+L'alignement = est spécifique aux nombres : Force le signe (+ ou -) à se positionner tout à gauche, et le nombre tout à droite et remplit l'espace vide
 ```python
 gain = 150
 perte = -80
@@ -115,8 +115,8 @@ print(f"{'PRODUIT':<25} | {'PRIX':^8}")
 print("-" * 36)
 
 for nom, prix in produits:
-    # Le nom est aligné à gauche sur 25 caractères (rempli d'espaces)
-    # Le prix est aligné à droite sur 5 caractères avec 2 décimales
+    # nom est aligné à gauche sur 25 caractères (rempli d'espaces)
+    # prix est aligné à droite sur 5 caractères avec 2 décimales
     print(f"{nom:<25} | {prix:>5.2f} €")
 ```
 

@@ -304,7 +304,7 @@ class Errors(unittest.TestCase):
                 parse(source)
 
     def test_no_equation(self):
-        sys.stdin, stdin = io.StringIO("\n  \n"), sys.stdin
+        sys.stdin, stdin = io.TextIOWrapper(io.BytesIO(b"\n  \n")), sys.stdin
         try:
             status, out, err = run()
         finally:
@@ -334,7 +334,7 @@ class Extras(unittest.TestCase):
         self.assertIn("(0, 1), maximum\n", out)
 
     def test_stdin(self):
-        sys.stdin, stdin = io.StringIO("x = 1\n\n2 * x = 1\n"), sys.stdin
+        sys.stdin, stdin = io.TextIOWrapper(io.BytesIO(b"x = 1\n\n2 * x = 1\n")), sys.stdin
         try:
             _, out, _ = run()
         finally:
@@ -350,7 +350,7 @@ class EntryPoint(unittest.TestCase):
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
             solver = join(copy, "computorv1", "solver.py")
             source = open(solver).read()
-            header = "def solve(p, degree):"
+            header = "def solve(p, degree, name):"
             open(solver, "w").write(
                 source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )
@@ -411,6 +411,10 @@ class Streams(unittest.TestCase):
             sys.stdin = stdin
         self.assertEqual(status, 1)
         self.assertIn("The solution is:", out)
+
+    def test_argv_bad_bytes(self):
+        status, _, err = run("x\udcff = 0")
+        self.assertEqual((status, err), (1, "computor: unexpected character '�'\n"))
 
 
 class Number(unittest.TestCase):

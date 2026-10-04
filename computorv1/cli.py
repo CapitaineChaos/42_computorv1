@@ -7,8 +7,13 @@ from .parser import parse
 from .reduce import MAX_REDUCED_DISP, dense
 from .solver import solve
 
+STEPS_FLAGS = ("-s", "--steps")
+
+
 def main(argv):
-    sources = argv if argv else read_stdin()
+    show_steps = any(arg in STEPS_FLAGS for arg in argv)
+    argv = [arg for arg in argv if arg not in STEPS_FLAGS]
+    sources = read_args(argv) if argv else read_stdin()
 
     status = 0
     position = 0
@@ -17,7 +22,7 @@ def main(argv):
         for source in sources:
             position += 1
             print(f"computor: equation {position}: {source}\n")
-            if not answer(source):
+            if not answer(source, show_steps):
                 status = 1
 
     # https://docs.python.org/fr/3.14/builtins/exceptions.html#KeyboardInterrupt
@@ -37,21 +42,25 @@ def main(argv):
     return status
 
 
+# doc: https://docs.python.org/3/library/os.html#os.fsencode
+def read_args(argv):
+    for arg in argv:
+        yield os.fsencode(arg).decode(errors="replace")
+
+
 # doc: https://docs.python.org/3/library/sys.html#sys.stdin
 def read_stdin():
-    if hasattr(sys.stdin, "reconfigure"):
-        sys.stdin.reconfigure(errors="replace")
-    for line in sys.stdin:
-        line = line.strip()
+    for raw in sys.stdin.buffer:
+        line = raw.decode(errors="replace").strip()
         if line:
             yield line
 
 
-def answer(source):
+def answer(source, show_steps):
     try:
         coefficients, degree, name = parse(source)
         p = dense(coefficients, degree) if degree <= MAX_REDUCED_DISP else None
-        lines = render(p, degree, solve(p, degree), name)
+        lines = render(p, degree, solve(p, degree, name), name, show_steps)
     except (ComputorError, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False

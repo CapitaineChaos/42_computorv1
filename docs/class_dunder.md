@@ -63,12 +63,12 @@ import time
 
 class Chrono:
     def __enter__(self):
-        # Exécuté à l'entrée du bloc. La valeur retournée est celle du "as"
+        # Exécuté à l'entrée du bloc
         self.debut = time.perf_counter()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Exécuté à la sortie, même si une exception a été levée dans le bloc !
+        # Exécuté à la sortie, même si une exception a été levée dans le bloc !!
         print(f"Durée : {time.perf_counter() - self.debut:.3f}s")
 
 # 1 : Cas normal
@@ -82,9 +82,6 @@ with Chrono():
 # __exit__ est quand même appelé et durée vaut 0s
 ```
 
-Les trois paramètres de `__exit__` décrivent l'exception, ou valent `None` s'il n'y en a
-pas eu. Retourner `True` l'étouffe, ne rien retourner la laisse remonter.
-
 ## Autre
 
 - `__call__(self, ...)` : Appeler l'objet directement comme si c'était une fonction
@@ -95,19 +92,19 @@ pas eu. Retourner `True` l'étouffe, ne rien retourner la laisse remonter.
 ```python
 class Multiplicateur:
     def __init__(self, facteur):
-        self.facteur = facteur  # On stocke le facteur de multiplication
+        self.facteur = facteur
 
     def __call__(self, nombre):
-        # Cette méthode s'exécute quand on utilise l'objet avec des ()
+        # Execution quand on utilise l'objet avec des ()
         return nombre * self.facteur
 
-# 1 : Création des instances (les configurations)
+# 1 : Création des instances
 doubler = Multiplicateur(2)
 tripler = Multiplicateur(3)
 
 # 2 : Utilisation des objets comme des fonctions
-print(doubler(5))  # Résultat : 10
-print(tripler(5))  # Résultat : 15
+print(doubler(5))  # 10
+print(tripler(5))  # 15
 ```
 
 ### __hash__
@@ -119,32 +116,32 @@ class Employe:
         self.nom = nom
 
     def __eq__(self, other):
-        # Deux employés sont considérés identiques si leur ID est le même
+        # Deux employés sont identiques si leur ID est le même
         if not isinstance(other, Employe):
             return False
         return self.id_employe == other.id_employe
 
     def __hash__(self):
-        # On base le hash uniquement sur l'ID (qui ne change pas)
+        # On base le hash uniquement sur l'ID qui change pas
         return hash(self.id_employe)
 
     def __repr__(self):
         return f"Employe({self.nom})"
 
-# 1 : Création d'instances
+# 1 : Instances
 emp1 = Employe(101, "Alice")
 emp2 = Employe(102, "Bob")
 emp3 = Employe(101, "Alice") # Même ID que emp1
 
-# 2 : Utilisation dans un set (élimine automatiquement les doublons)
+# 2 : Utilisation dans un set créé à la volée
 registre = {emp1, emp2, emp3}
 print(registre)  
-# Résultat : {Employe(Alice), Employe(Bob)} -> emp3 a été ignoré car identique à emp1 !
+# Résultat : {Employe(Alice), Employe(Bob)} -> emp3 ignoré
 
 # 3 : Utilisation comme clé de dictionnaire
 accès_badge = {
     emp1: "Accès Zone A",
     emp2: "Accès Zone B"
 }
-print(accès_badge[emp1])  # Résultat : Accès Zone A
+print(accès_badge[emp1])  # Accès Zone A
 ```

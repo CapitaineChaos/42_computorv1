@@ -28,10 +28,10 @@ Accès aux flux standards du terminal.
 ```python
 import sys
 
-# Équivaut au print classique
+# Print classique
 print("Message normal", file=sys.stdout)
 
-# Afficher explicitement une erreur dans le flux d'erreur
+# Afficher un msg dans le flux d'erreur
 print("ERREUR : Le fichier est introuvable !", file=sys.stderr)
 ```
 
@@ -39,6 +39,7 @@ print("ERREUR : Le fichier est introuvable !", file=sys.stderr)
 ## Flux en mémoire (io.StringIO)
 Simuler un fichier directement dans la RAM. Utile pour capturer le texte généré par un `print()`
 On peut le manipuler plus tard comme une var string c'est cool
+
 ```python
 import io
 
@@ -57,7 +58,7 @@ flux_memoire.close()
 ```
 
 ## Custom Wrappers
-On peut intercepter ce que `print()` envoie si classe possède la méthode write().
+On peut intercepter ce que `print()` envoie si la classe possède une méthode write().
 ```python
 class MonJournaliseur:
     def write(self, message):

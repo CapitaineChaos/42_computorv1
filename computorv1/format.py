@@ -1,3 +1,5 @@
+from math import isinf
+
 from .fraction import Fraction
 
 MAX_DENOMINATOR = 10000
@@ -5,6 +7,8 @@ MAX_DENOMINATOR = 10000
 
 def fmt(x):
     f = float(x)
+    if isinf(f):
+        raise OverflowError
     if f != 0.0 and abs(f) < 1e-6:
         return f"{f:g}"
     text = ("%.6f" % f).rstrip("0").rstrip(".")
@@ -18,7 +22,7 @@ def fraction(x):
     return x.numerator, x.denominator
 
 
-# formule: https://en.wikipedia.org/w/index.php?title=Repeating_decimal&oldid=1375973380#Every_rational_number_is_either_a_terminating_or_repeating_decimal
+# https://en.wikipedia.org/w/index.php?title=Repeating_decimal&oldid=1375973380#Every_rational_number_is_either_a_terminating_or_repeating_decimal
 def terminates(q):
     for prime in (2, 5):
         while q % prime == 0:

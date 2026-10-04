@@ -75,5 +75,5 @@ Mêmes catégories pour les deux :
 
 ### Règles par défaut et règles preview
 
-- Sans `select` : seuls `E4`, `E7`, `E9` et `F`, ceux qui ne recoupent pas le formateur
+- Sans `select` : `E4`, `E7`, `E9` et `F`
 - Preview : `E2`, `E3`, `E1` sauf `E101`, inactives sauf `preview = true`

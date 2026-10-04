@@ -17,23 +17,43 @@ def linear_steps(values, roots, name):
     ]
 
 
-def quadratic_steps(kind, values, roots, name):
+def quadratic_steps_1(values):
     a, b, c, delta = values["a"], values["b"], values["c"], values["delta"]
     h, k = values["vertex"]
     lines = [
-        f"a = {real(a)}, b = {real(b)}, c = {real(c)}",
-        f"Δ = b² - 4ac = {wrap(b)}² - 4 * {wrap(a)} * {wrap(c)} = {real(delta)}",
-        f"vertex = (-b / 2a, -Δ / 4a) = ({real(h)}, {real(k)}), {'minimum' if a > 0 else 'maximum'}",
+        f"Coeffs:",
+        f"     a = {real(a)}",
+        f"     b = {real(b)}",
+        f"     c = {real(c)}",
+        f"delta  = b² - 4ac",
+        f"       = {wrap(b)}² - 4 * {wrap(a)} * {wrap(c)}",
+        f"       = {real(delta)}",
+        f"vertex = (-b / 2a, -delta / 4a)",
+        f"       = (-{wrap(b)}/(2*{wrap(a)}), -{wrap(delta)}/(4*{wrap(a)}))",
+        f"       = ({real(-b)}/{wrap(2*a)}, {real(-delta)}/{wrap(4*a)})",
+        f"       = ({real(h)}, {real(k)})",
+        f"       is a {'minimum' if a > 0 else 'maximum'}",
     ]
+    return lines
+
+def quadratic_steps_2(kind, delta, roots, name):
+    lines = []
     if kind == "double":
-        lines.append(f"{name} = -b / 2a = {real(-b)} / {wrap(2 * a)} = {real(roots[0])}")
+        lines = [
+            f"{name} = x-coordinate of vertex",
+            f"       = {real(roots[0])}",
+        ]
     elif kind == "positive":
         for i, sign in enumerate("+-"):
-            formula = f"{name}{i + 1} = (-b {sign} √Δ) / 2a"
+            formula = f"{name}{i + 1} = (-b {sign} √delta) / 2a"
             numbers = f"({real(-b)} {sign} √{real(delta)}) / {wrap(2 * a)}"
-            lines.append(f"{formula} = {numbers} = {real(roots[i])}")
+            lines = [
+                f"{formula} = {numbers} = {real(roots[i])}",
+            ]
     else:
         re, im = roots[0]
-        lines.append(f"-b / 2a = {real(-b)} / {wrap(2 * a)} = {real(re)}")
-        lines.append(f"√-Δ / 2a = √{real(-delta)} / {wrap(2 * a)} = {real(im)}")
+        lines = [
+            f"-b / 2a = {real(-b)} / {wrap(2 * a)} = {real(re)}",
+            f"√-delta / 2a = √{real(-delta)} / {wrap(2 * a)} = {real(im)}"
+        ]
     return lines

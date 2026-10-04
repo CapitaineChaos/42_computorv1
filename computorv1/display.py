@@ -1,8 +1,7 @@
 import re
 import sys
 
-from .format import fmt, root
-from .steps import steps
+from .format import fmt
 
 YELLOW = "\033[33m"
 GREEN = "\033[32m"
@@ -15,24 +14,9 @@ COLORS = [
     (re.compile(r"\^-?\d+"), CYAN),
 ]
 
-HEADLINES = {
-    "all": "Any real number is a solution.",
-    "none": "No solution.",
-    "linear": "The solution is:",
-    "double": "Discriminant is zero, the solution is:",
-    "positive": "Discriminant is strictly positive, the two solutions are:",
-    "negative": "Discriminant is strictly negative, the two complex solutions are:",
-    "high": "The polynomial degree is strictly greater than 2, I can't solve.",
-}
 
-COEFFICIENTS = ("a", "b", "c")
-
-
-# code: https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
-# doc: https://docs.python.org/3/library/io.html#io.IOBase.isatty
+# https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
 def colorize(text):
-    if not sys.stdout.isatty():
-        return text
     for pattern, color in COLORS:
         text = pattern.sub(color + r"\g<0>" + RESET, text)
     return text
@@ -51,18 +35,13 @@ def reduced_form(p, name):
     return text + " = 0"
 
 
-def render(p, degree, solution, name):
-    kind, roots, values = solution
+def render(p, degree, equation, name, show_steps):
     lines = []
     if p is not None:
         lines.append("Reduced form: " + colorize(reduced_form(p, name)))
-    if kind not in ("all", "none"):
+    if degree > 0:
         lines.append(f"Polynomial degree: {degree}")
-    lines += ["  " + line for line in steps(kind, roots, values, name)]
-    lines.append(HEADLINES[kind])
-    for i, r in enumerate(roots):
-        index = str(i + 1) if len(roots) > 1 else ""
-        lines.append(f"{name}{index} = {root(r)}")
-    if roots and name in COEFFICIENTS:
-        lines.append(f"({name} is the unknown of the equation, not the coefficient {name})")
+    if show_steps:
+        lines += ["  " + line for line in equation.steps()]
+    lines.append(str(equation))
     return lines
