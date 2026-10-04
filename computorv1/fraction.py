@@ -1,6 +1,5 @@
-# Nombre rationnel exact a/b, a et b entiers.
+import math
 
-# Chiffres significatifs
 DIGITS = 15
 
 
@@ -23,6 +22,7 @@ def to_fraction(x: float) -> "Fraction":
     return Fraction(x)
 
 
+# Nombre rationnel exact a/b, a et b entiers.
 class Fraction:
     def __init__(self, numerator: int, denominator: int = 1):
         if denominator == 0:
@@ -56,9 +56,9 @@ class Fraction:
             a.denominator * b.denominator,
         )
 
-    # x - Fraction(y, z) => a = Fraction(y, z) et b = x
+    # x - Fraction(y, z) => a = Fraction(y, z) et b = x.
     def __rsub__(a, b):
-        return b - a
+        return -a + b
 
     def __mul__(a, b):
         if isinstance(b, float):
@@ -80,9 +80,11 @@ class Fraction:
         return to_fraction(b) / a
 
     def __pow__(a, n):
-        if n < 0:
-            return Fraction(a.denominator**-n, a.numerator**-n)
-        return Fraction(a.numerator**n, a.denominator**n)
+        base = 1 / a if n < 0 else a
+        value = math.pow(base, abs(n))
+        if value == 0.0 and base != 0:
+            raise ValueError("number too small")
+        return Fraction(*value.as_integer_ratio())
 
     def __neg__(a):
         return Fraction(-a.numerator, a.denominator)
@@ -103,7 +105,10 @@ class Fraction:
         return to_fraction(b) < a
 
     def __float__(self):
-        return int(self.numerator) / int(self.denominator)
+        value = int(self.numerator) / int(self.denominator)
+        if value == 0.0 and self.numerator != 0:
+            raise ValueError("number too small")
+        return value
 
 
 def isqrt(y):

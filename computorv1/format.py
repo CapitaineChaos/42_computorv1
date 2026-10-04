@@ -1,23 +1,17 @@
 from .fraction import Fraction
 
-# Nombres écrits en texte : décimal à 6 chiffres après la virgule au plus, fraction quand
-# les décimales ne s'arrêtent pas, complexe a + bi.
-
-# Une fraction n'est écrite que si son dénominateur reste lisible : 1/3, pas 1/12347.
 MAX_DENOMINATOR = 10000
 
 
-# doc: https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting
 def fmt(x):
-    x = float(x)
-    if x != 0.0 and abs(x) < 1e-6:
-        return f"{x:g}"
-    text = (f"%.6f" % x).rstrip("0").rstrip(".")
+    f = float(x)
+    if f != 0.0 and abs(f) < 1e-6:
+        return f"{f:g}"
+    text = ("%.6f" % f).rstrip("0").rstrip(".")
     return "0" if text == "-0" else text
 
 
-# Fraction à écrire : un résultat exact seulement, pas un float venu d'une racine
-# irrationnelle, et avec un dénominateur lisible.
+
 def fraction(x):
     if not isinstance(x, Fraction) or x.denominator > MAX_DENOMINATOR:
         return None
@@ -64,4 +58,4 @@ def root(r):
     if not isinstance(r, tuple):
         return real(r)
     re, im = r
-    return f"{ratio(re)} { '-' if im < 0 else '+' } {imaginary(abs(im))}"
+    return f"{ratio(re)} {'-' if im < 0 else '+'} {imaginary(abs(im))}"

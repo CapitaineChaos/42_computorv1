@@ -1,11 +1,11 @@
-import sys
 import os
+import sys
 
 from .display import render
 from .errors import ComputorError
 from .parser import parse
+from .reduce import MAX_REDUCED_DISP, dense
 from .solver import solve
-
 
 def main(argv):
     sources = argv if argv else read_stdin()
@@ -27,7 +27,7 @@ def main(argv):
 
     # https://docs.python.org/fr/3.14/library/signal.html#note-on-sigpipe
     except BrokenPipeError:
-        devnull = os.open("/dev/null", "w")
+        devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         return 1
 
@@ -49,9 +49,14 @@ def read_stdin():
 
 def answer(source):
     try:
-        p, name = parse(source)
-    except ComputorError as error:
+        coefficients, degree, name = parse(source)
+        p = dense(coefficients, degree) if degree <= MAX_REDUCED_DISP else None
+        lines = render(p, degree, solve(p, degree), name)
+    except (ComputorError, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False
-    print("\n".join(render(p, solve(p), name)), flush=True)
+    except (OverflowError, MemoryError):
+        print("computor: number too large", file=sys.stderr)
+        return False
+    print("\n".join(lines), flush=True)
     return True

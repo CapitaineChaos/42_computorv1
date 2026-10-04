@@ -91,18 +91,8 @@ def split_sides(source):
     sides = SIDES.fullmatch(source)
     if sides is None:
         message = "expected one '=' between two sides"
-        raise ComputorError(message, equals_error_position(source))
+        raise ComputorError(message)
     return sides.group(1), sides.group(2)
-
-
-def equals_error_position(source):
-    first = source.find("=")
-    if first == -1:
-        return len(source)
-    second = source.find("=", first + 1)
-    if second == -1:
-        return first
-    return second
 
 
 # doc: https://docs.python.org/3/library/re.html#re.Pattern.search
@@ -110,21 +100,21 @@ def check_characters(source):
     parenthesis = PARENTHESIS.search(source)
     if parenthesis is not None:
         message = "parentheses are not supported, expand the product first"
-        raise ComputorError(message, parenthesis.start())
+        raise ComputorError(message)
     forbidden = FORBIDDEN.search(source)
     if forbidden is not None:
-        raise ComputorError("unexpected character '%s'" % forbidden.group(), forbidden.start())
+        raise ComputorError(f"unexpected character '{forbidden.group()}'")
     missing_operator = MISSING_OPERATOR.search(source)
     if missing_operator is not None:
-        raise ComputorError("missing operator between numbers", missing_operator.start())
+        raise ComputorError("missing operator between numbers")
     bad_exponent = BAD_EXPONENT.search(source)
     if bad_exponent is not None:
-        raise ComputorError("exponent must be an integer", bad_exponent.start())
+        raise ComputorError("exponent must be an integer")
     second = SECOND_UNKNOWN.search(source)
     if second is not None:
         first, other = second.groups()
-        message = "second unknown '%s', '%s' is already the unknown" % (other, first)
-        raise ComputorError(message, second.start(2))
+        message = f"second unknown '{other}', '{first}' is already the unknown"
+        raise ComputorError(message)
 
 
 # doc: https://docs.python.org/3/library/re.html#re.sub

@@ -1,3 +1,5 @@
+# Author : CLAUDE OPUS 5.5
+
 import io
 import os
 import pty
@@ -16,12 +18,15 @@ from computorv1.errors import ComputorError  # noqa: E402
 from computorv1.format import fmt, fraction, terminates  # noqa: E402
 from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
 from computorv1.parser import parse  # noqa: E402
-from tests.corpus import CRASHERS, EQUATIONS, REFUSED  # noqa: E402
+from computorv1.reduce import MAX_REDUCED_DISP, dense  # noqa: E402
+from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 
 
-# Coefficients exacts convertis en float, pour comparer aux listes du corpus.
+# Coefficients exacts convertis en float, pour comparer aux listes du corpus. Densifie
+# sans tenir compte de MAX_REDUCED_DISP : ce que le corpus vérifie est la réduction.
 def reduced(source):
-    return [float(c) for c in parse(source)[0]]
+    coefficients, degree, _ = parse(source)
+    return [float(c) for c in dense(coefficients, degree)]
 
 
 def run(*argv):
@@ -131,8 +136,8 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("B^2 = B"), [0.0, -1.0, 1.0])
 
     def test_unknown_name(self):
-        self.assertEqual(parse("3b + 1 = 0")[1], "b")
-        self.assertEqual(parse("1 = 2")[1], "X")
+        self.assertEqual(parse("3b + 1 = 0")[2], "b")
+        self.assertEqual(parse("1 = 2")[2], "X")
         _, out, _ = run("b^2 - 1 = 0")
         self.assertTrue(out.startswith("Reduced form: -1 * b^0 + 0 * b^1 + 1 * b^2 = 0\n"))
         self.assertIn("  b1 = (-b + √Δ) / 2a", out)
@@ -148,14 +153,39 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("-22^2 = 484x"), [-484.0, -484.0])
         self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 9.61])
         self.assertEqual(reduced("-2^-3 + 3x + 2x = 0"), [-0.125, 5.0])
-        for source in ("2^0.5 = x", "0^-1 = 1", "10^400 = x", "1^1001 = x"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+        with self.assertRaises(ComputorError):
+            parse("2^0.5 = x")
+        with self.assertRaises(ZeroDivisionError):
+            parse("0^-1 = 1")
+        # Plus de seuil sur l'exposant : 1^1001 est instantané, donc il est calculé.
+        self.assertEqual(reduced("1^1001 = x"), [1.0, -1.0])
 
+    # Refusées à la conversion en float, donc au rendu et non au parsing.
     def test_magnitudes_refused(self):
-        for source in ("10^400 = x", "99^-159 = x", "51X841 = X*X18*99⁻¹59"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+        for source in ("10^400 = x", "51X841 = X*X18*99⁻¹59", "99^-159 * X^2 + X + 1 = 0"):
+            status, _, err = run(source)
+            self.assertEqual(status, 1, source)
+            self.assertEqual(err, "computor: number too large\n", source)
+        status, _, err = run("0." + "0" * 400 + "1 * X = 1")
+        self.assertEqual((status, err), (1, "computor: number too small\n"))
+
+    # La puissance flottante déborde avant de construire un entier gigantesque.
+    def test_power_overflow(self):
+        with self.assertRaises(OverflowError):
+            parse("2^999999999 = x")
+        status, _, err = run("2^999999999 = x")
+        self.assertEqual(status, 1)
+        self.assertEqual(err, "computor: number too large\n")
+
+    def test_power_underflow(self):
+        status, _, err = run("2^-999999999 = x")
+        self.assertEqual((status, err), (1, "computor: number too small\n"))
+        self.assertEqual(reduced("1^999999999 = x"), [1.0, -1.0])
+
+    # 1e-317 est représentable, même dénormalisé : plus rien ne justifie de le refuser.
+    def test_subnormal_is_solved(self):
+        _, out, _ = run("99^-159 = x")
+        self.assertIn("x = 4.94315e-318\n", out)
 
     def test_chained_exponents_refused(self):
         for source in ("x^2^3 = 0", "2^3^2 = x", "9^9^9 = x", "x²^3 = 1"):
@@ -183,7 +213,8 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("x^2 + 0.1 * x + 0.2 * x = 0.3 * x"), [0.0, 0.0, 1.0])
 
     def test_close_values_stay_different(self):
-        self.assertEqual(parse("x = 1.0000000001 * x")[0], [0, Fraction(-1, 10**10)])
+        coefficients, degree, _ = parse("x = 1.0000000001 * x")
+        self.assertEqual(dense(coefficients, degree), [0, Fraction(-1, 10**10)])
         _, out, _ = run("x^2 + 2x + 0.9999999999 = 0")
         self.assertIn("the two solutions are", out)
 
@@ -228,31 +259,49 @@ class Students42(unittest.TestCase):
             self.assertEqual((status, out), (1, ""), source)
             self.assertTrue(err.startswith("computor: " + message), (source, err))
 
+    def test_unsolved_without_reduced_form(self):
+        for source, degree in UNSOLVED:
+            status, out, err = run(source)
+            self.assertEqual((status, err), (0, ""), source)
+            self.assertNotIn("Reduced form", out, source)
+            self.assertIn("Polynomial degree: %d\n" % degree, out, source)
+            self.assertIn("strictly greater than 2", out, source)
+
+    # Le degré 3 garde sa forme réduite, le degré 4 ne l'a plus.
+    def test_reduced_form_stops_after_max(self):
+        self.assertEqual(MAX_REDUCED_DISP, 3)
+        _, out, _ = run("x^3 = 0")
+        self.assertIn("Reduced form: 0 * x^0 + 0 * x^1 + 0 * x^2 + 1 * x^3 = 0\n", out)
+        _, out, _ = run("x^4 = 0")
+        self.assertNotIn("Reduced form", out)
+        self.assertIn("Polynomial degree: 4\n", out)
+
 
 class Errors(unittest.TestCase):
-    def error(self, source):
-        with self.assertRaises(ComputorError) as caught:
-            parse(source)
-        return caught.exception.text, caught.exception.position
-
-    def test_positions(self):
-        self.assertEqual(self.error("x % 2 = 0"), (None, 2))
-        self.assertEqual(self.error("x + y = 0"), (None, 4))
-        self.assertEqual(self.error("x^0.5 = 2"), (None, 1))
-        self.assertEqual(self.error("2 3 = X"), (None, 1))
-        self.assertEqual(self.error("X^1 0 = 1"), (None, 3))
-        self.assertEqual(self.error("5 * X^0"), (None, 7))
-        self.assertEqual(self.error("x = 1 = 2"), (None, 6))
-        self.assertEqual(self.error("= x"), (None, 0))
-        self.assertEqual(self.error("x =   "), (None, 2))
-        self.assertEqual(self.error("x^-1 = 0"), (None, None))
-        self.assertEqual(self.error("x^1.5 = 0"), (None, 1))
-        self.assertEqual(self.error("x + = 0"), ("+", 1))
-        self.assertEqual(self.error("3 * * X = 1"), ("+3**X^1", 3))
-        self.assertEqual(self.error("3 * = X"), ("+3*", 3))
-        self.assertEqual(self.error("+ * X = 1"), ("+*X^1", 1))
-        self.assertEqual(self.error("* X = 1"), ("*X^1", 0))
-        self.assertEqual(self.error("1 + 2 * x^11 = 0"), (None, None))
+    # Un refus doit lever ComputorError, pas une autre exception : un TypeError ici sort
+    # en « internal error » et 70 au lieu du message.
+    def test_refused_by_the_parser(self):
+        sources = (
+            "x % 2 = 0",
+            "x + y = 0",
+            "x^0.5 = 2",
+            "2 3 = X",
+            "X^1 0 = 1",
+            "5 * X^0",
+            "x = 1 = 2",
+            "= x",
+            "x =   ",
+            "x^-1 = 0",
+            "x^1.5 = 0",
+            "x + = 0",
+            "3 * * X = 1",
+            "3 * = X",
+            "+ * X = 1",
+            "* X = 1",
+        )
+        for source in sources:
+            with self.assertRaises(ComputorError, msg=source):
+                parse(source)
 
     def test_no_equation(self):
         sys.stdin, stdin = io.StringIO("\n  \n"), sys.stdin
@@ -268,16 +317,11 @@ class Errors(unittest.TestCase):
         self.assertIn("expected one '='", err)
 
     def test_report(self):
-        status, out, err = run("x % 2 = 0")
-        self.assertEqual((status, out), (1, ""))
-        self.assertEqual(err, "computor: unexpected character '%'\n    x % 2 = 0\n      ^\n")
-        _, _, err = run("1 + 2 * x^11 = 0")
-        self.assertEqual(err, "computor: reduced degree 11 greater than 10\n")
+        status, _, err = run("x % 2 = 0")
+        self.assertEqual(status, 1)
+        self.assertEqual(err, "computor: unexpected character '%'\n")
         _, _, err = run("x = 1 = 2")
-        self.assertEqual(
-            err,
-            "computor: expected one '=' between two sides\n    x = 1 = 2\n          ^\n",
-        )
+        self.assertEqual(err, "computor: expected one '=' between two sides\n")
 
 
 class Extras(unittest.TestCase):
@@ -306,7 +350,7 @@ class EntryPoint(unittest.TestCase):
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
             solver = join(copy, "computorv1", "solver.py")
             source = open(solver).read()
-            header = "def solve(p):"
+            header = "def solve(p, degree):"
             open(solver, "w").write(
                 source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )

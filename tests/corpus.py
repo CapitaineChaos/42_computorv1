@@ -1,3 +1,5 @@
+# Author : CLAUDE OPUS 5.5
+
 # Équations tirées des dépôts computorv1 d'étudiants 42 : README et scripts de test de
 # 456 dépôts trouvés sur GitHub, tous langages confondus.
 #
@@ -486,10 +488,6 @@ REFUSED = [
     ("0.3 * x^2 = 0.8 * x^1 - 56 *X^0", "second unknown 'X'"),
     ("1 * = 0", "invalid factor"),
     ("1 * X^-1 + 1 * X^0 = 0", "negative exponent X^-1 after reduc"),
-    (
-        "1 * x^0 + 1 * x^1 + x^2 + x^3+x^4+x^5 +x^6+ x^7 + x^9+ x^10 + x^11 = 0",
-        "reduced degree 11 greater than 10",
-    ),
     ("1 + = 0", "invalid factor"),
     ("1 - 4/x^2 = 0", "unexpected character '/'"),
     ("1 ^ = 0", "invalid factor"),
@@ -519,7 +517,6 @@ REFUSED = [
     ("20*X^1.2  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "exponent must be an integer"),
     ("20*X^1.2  + 5*X^2 + 2*X^0 = 20*x^1.2 - 8*X^1", "exponent must be an integer"),
     ("2^1.2 = 2^1.2", "exponent must be an integer"),
-    ("2x^100 = 0", "reduced degree 100 greater than 10"),
     ("3 * X^1 - 2 * x^0 = 7 * X^2", "second unknown 'x'"),
     ("3x + 2X^2 = 43", "second unknown 'X'"),
     ("3x+^2 = 0", "invalid factor"),
@@ -574,8 +571,17 @@ REFUSED = [
     ("x//2 = 1", "unexpected character '/'"),
     ("x^ = 1", "invalid factor"),
     ("x^-1 = 0", "negative exponent x^-1 after reduction"),
-    ("x^1000 = 1", "reduced degree 1000 greater than 1"),
     ("x^2^3 = 0", "chained exponent is ambiguous"),
-    ("x^999999999999 = 1", "reduced degree 999999999999 greate"),
     ("x^^2 = 0", "chained exponent is ambiguous"),
+]
+
+
+# Degrés trop grands pour être résolus, et trop grands pour que la forme réduite soit
+# lisible : la réponse se limite au degré. Refusées jusqu'ici par une borne sur le degré.
+UNSOLVED = [
+    ("1 * x^0 + 1 * x^1 + x^2 + x^3+x^4+x^5 +x^6+ x^7 + x^9+ x^10 + x^11 = 0", 11),
+    ("2x^100 = 0", 100),
+    ("x^99 = 0", 99),
+    ("x^1000 = 1", 1000),
+    ("x^999999999999 = 1", 999999999999),
 ]

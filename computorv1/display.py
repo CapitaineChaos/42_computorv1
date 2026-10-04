@@ -9,7 +9,6 @@ GREEN = "\033[32m"
 CYAN = "\033[36m"
 RESET = "\033[0m"
 
-# Ce qui est coloré dans la forme réduite : signes, multiplications, exposants.
 COLORS = [
     (re.compile(r"[+-]"), YELLOW),
     (re.compile(r"\*"), GREEN),
@@ -52,11 +51,13 @@ def reduced_form(p, name):
     return text + " = 0"
 
 
-def render(p, solution, name):
+def render(p, degree, solution, name):
     kind, roots, values = solution
-    lines = ["Reduced form: " + colorize(reduced_form(p, name))]
+    lines = []
+    if p is not None:
+        lines.append("Reduced form: " + colorize(reduced_form(p, name)))
     if kind not in ("all", "none"):
-        lines.append(f"Polynomial degree: {len(p) - 1}")
+        lines.append(f"Polynomial degree: {degree}")
     lines += ["  " + line for line in steps(kind, roots, values, name)]
     lines.append(HEADLINES[kind])
     for i, r in enumerate(roots):
