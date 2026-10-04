@@ -9,7 +9,7 @@
 ## Affichage
 
 - `__str__(self)` : Version lisible de l'objet. Appelé par `print(objet)` ou `str(objet)` et doit retourner une chaîne `(str)`
-- `__repr__(self)` : Version "officielle" et technique de l'objet
+- `__repr__(self)` : Version "officielle" et technique de l'objet avec `repr()`
 
 ## Comparaisons
 
@@ -53,8 +53,37 @@
 ## Gestion de contexte
 Pour être utilisé proprement avec le mot-clé with
 
-- `__enter__(self)` : S'exécute à l'entrée du bloc with. Prépare la ressource
-- `__exit__(self, exc_type, exc_val, exc_tb)` : S'exécute à la sortie du bloc, même si une erreur survient. Ex : pour fermer une connexion ou un fichier
+- `__enter__(self)` : Appelé à l'entrée du bloc with. Prépare la ressource
+- `__exit__(self, exc_type, exc_val, exc_tb)` : Appelé à la sortie du bloc, même si une erreur survient. Par ex pour fermer une connexion ou un fichier
+
+### `__enter__` et `__exit__`
+
+```python
+import time
+
+class Chrono:
+    def __enter__(self):
+        # Exécuté à l'entrée du bloc. La valeur retournée est celle du "as"
+        self.debut = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Exécuté à la sortie, même si une exception a été levée dans le bloc !
+        print(f"Durée : {time.perf_counter() - self.debut:.3f}s")
+
+# 1 : Cas normal
+with Chrono() as chrono:        # Appel de __enter__ et renvoie de chrono
+    somme = sum(range(1000000))
+# __exit__ est appelé et durée = 0.012s
+
+# 2 : Cas avec erreur
+with Chrono():
+    raise ValueError("boom")
+# __exit__ est quand même appelé et durée vaut 0s
+```
+
+Les trois paramètres de `__exit__` décrivent l'exception, ou valent `None` s'il n'y en a
+pas eu. Retourner `True` l'étouffe, ne rien retourner la laisse remonter.
 
 ## Autre
 
@@ -72,11 +101,11 @@ class Multiplicateur:
         # Cette méthode s'exécute quand on utilise l'objet avec des ()
         return nombre * self.facteur
 
-# 1. Création des instances (les configurations)
+# 1 : Création des instances (les configurations)
 doubler = Multiplicateur(2)
 tripler = Multiplicateur(3)
 
-# 2. Utilisation des objets comme des fonctions
+# 2 : Utilisation des objets comme des fonctions
 print(doubler(5))  # Résultat : 10
 print(tripler(5))  # Résultat : 15
 ```
@@ -102,17 +131,17 @@ class Employe:
     def __repr__(self):
         return f"Employe({self.nom})"
 
-# 1. Création d'instances
+# 1 : Création d'instances
 emp1 = Employe(101, "Alice")
 emp2 = Employe(102, "Bob")
 emp3 = Employe(101, "Alice") # Même ID que emp1
 
-# 2. Utilisation dans un set (élimine automatiquement les doublons)
+# 2 : Utilisation dans un set (élimine automatiquement les doublons)
 registre = {emp1, emp2, emp3}
 print(registre)  
 # Résultat : {Employe(Alice), Employe(Bob)} -> emp3 a été ignoré car identique à emp1 !
 
-# 3. Utilisation comme clé de dictionnaire
+# 3 : Utilisation comme clé de dictionnaire
 accès_badge = {
     emp1: "Accès Zone A",
     emp2: "Accès Zone B"

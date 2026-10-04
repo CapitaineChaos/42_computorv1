@@ -2,10 +2,10 @@
 
 `print(*objects, sep=' ', end='\n', file=None, flush=False)`
 
-- sep : Définit la chaîne de caractères insérée entre chaque valeur affichée. Espace par défaut.
-- end : Définit la chaîne de caractères ajoutée à la toute fin de l'affichage. Saut de ligne par défaut
+- sep : Définit la chaîne de caractères insérée entre chaque valeur affichée. `' '` par défaut
+- end : Définit la chaîne de caractères ajoutée à la toute fin de l'affichage. `'\n'` par défaut
 - file : Rediriger la sortie vers un objet fichier 
-- flush : Force le vidage (flush) immédiat du flux de sortie
+- flush : Force le vidage immédiat du flux de sortie
 
 
 
@@ -37,7 +37,8 @@ print("ERREUR : Le fichier est introuvable !", file=sys.stderr)
 
 
 ## Flux en mémoire (io.StringIO)
-Simuler un fichier directement dans la RAM. Utile pour capturer le texte généré par un `print()` afin de le manipuler plus tard comme une variable string.
+Simuler un fichier directement dans la RAM. Utile pour capturer le texte généré par un `print()`
+On peut le manipuler plus tard comme une var string c'est cool
 ```python
 import io
 
@@ -56,7 +57,7 @@ flux_memoire.close()
 ```
 
 ## Custom Wrappers
-On peut créer une classe pour intercepter ce que `print()` envoie. Il suffit que la classe possède une méthode write().
+On peut intercepter ce que `print()` envoie si classe possède la méthode write().
 ```python
 class MonJournaliseur:
     def write(self, message):
