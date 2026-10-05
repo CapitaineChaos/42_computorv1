@@ -1,21 +1,14 @@
-from .equation import Equation
+from .eq import Equation
 from .format import real, root, wrap
 from .fraction import sqrt
 
 
-def quadratic(p, name):
-    c, b, a = p
-    delta = b * b - 4 * a * c
-    if delta > 0:
-        return TwoRoots(p, delta, name)
-    if delta < 0:
-        return ComplexRoots(p, delta, name)
-    return DoubleRoot(p, delta, name)
+
 
 
 class Quadratic(Equation):
-    def __init__(self, p, delta, name):
-        super().__init__(name)
+    def __init__(self, p, degree, name, delta):
+        super().__init__(p, degree, name)
         self.c, self.b, self.a = p
         self.delta = delta
         self.h = -self.b / (2 * self.a)
@@ -50,48 +43,48 @@ class DoubleRoot(Quadratic):
             f"{' ' * len(self.name)} = {real(self.h)}",
         ]
 
-    def __str__(self):
-        return f"Discriminant is zero, the solution is:\n{self.name} = {real(self.h)}"
+    def solution(self):
+        return ["Discriminant is zero, the solution is:", f"{self.name} = {real(self.h)}"]
 
 
 class TwoRoots(Quadratic):
-    def __init__(self, p, delta, name):
-        super().__init__(p, delta, name)
+    def __init__(self, p, degree, name, delta):
+        super().__init__(p, degree, name, delta)
         self.x1, self.x2 = distinct_roots(self.a, self.b, self.c, sqrt(delta))
 
     def root_steps(self):
         a, b, delta, name = self.a, self.b, self.delta, self.name
         return [
-            f"{name}1 = (-b + √delta) / 2a = ({real(-b)} + √{real(delta)}) / {wrap(2 * a)} = {real(self.x1)}",
-            f"{name}2 = (-b - √delta) / 2a = ({real(-b)} - √{real(delta)}) / {wrap(2 * a)} = {real(self.x2)}",
+            f"{name}1 = (-b + rac(delta)) / 2a = ({real(-b)} + rac({real(delta)})) / {wrap(2 * a)} = {real(self.x1)}",
+            f"{name}2 = (-b - rac(delta)) / 2a = ({real(-b)} - rac({real(delta)})) / {wrap(2 * a)} = {real(self.x2)}",
         ]
 
-    def __str__(self):
-        return (
-            "Discriminant is strictly positive, the two solutions are:\n"
-            f"{self.name}1 = {real(self.x1)}\n"
-            f"{self.name}2 = {real(self.x2)}"
-        )
+    def solution(self):
+        return [
+            "Discriminant is strictly positive, the two solutions are:",
+            f"{self.name}1 = {real(self.x1)}",
+            f"{self.name}2 = {real(self.x2)}",
+        ]
 
 
 class ComplexRoots(Quadratic):
-    def __init__(self, p, delta, name):
-        super().__init__(p, delta, name)
+    def __init__(self, p, degree, name, delta):
+        super().__init__(p, degree, name, delta)
         self.im = sqrt(-delta) / (2 * self.a)
 
     def root_steps(self):
         a, b, delta = self.a, self.b, self.delta
         return [
             f"-b / 2a = {real(-b)} / {wrap(2 * a)} = {real(self.h)}",
-            f"√-delta / 2a = √{real(-delta)} / {wrap(2 * a)} = {real(self.im)}",
+            f"-rac(delta) / 2a = rac({real(-delta)}) / {wrap(2 * a)} = {real(self.im)}",
         ]
 
-    def __str__(self):
-        return (
-            "Discriminant is strictly negative, the two complex solutions are:\n"
-            f"{self.name}1 = {root((self.h, self.im))}\n"
-            f"{self.name}2 = {root((self.h, -self.im))}"
-        )
+    def solution(self):
+        return [
+            "Discriminant is strictly negative, the two complex solutions are:",
+            f"{self.name}1 = {root((self.h, self.im))}",
+            f"{self.name}2 = {root((self.h, -self.im))}",
+        ]
 
 
 def distinct_roots(a, b, c, root):

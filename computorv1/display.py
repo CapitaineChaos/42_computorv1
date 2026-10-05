@@ -1,5 +1,4 @@
 import re
-import sys
 
 from .format import fmt
 
@@ -22,9 +21,16 @@ def colorize(text):
     return text
 
 
+# p vaut None au-delà de reduce.MAX_REDUCED_DISP : la section disparaît.
 def reduced_form(p, name):
+    if p is None:
+        return []
+    return ["Reduced form: " + colorize(terms(p, name))]
+
+
+def terms(p, name):
     if not p:
-        return "0 * %s^0 = 0" % name
+        return f"0 * {name}^0 = 0"
     text = ""
     for degree, c in enumerate(p):
         term = f"{fmt(abs(c))} * {name}^{degree}"
@@ -33,15 +39,3 @@ def reduced_form(p, name):
         else:
             text += (" - " if c < 0 else " + ") + term
     return text + " = 0"
-
-
-def render(p, degree, equation, name, show_steps):
-    lines = []
-    if p is not None:
-        lines.append("Reduced form: " + colorize(reduced_form(p, name)))
-    if degree > 0:
-        lines.append(f"Polynomial degree: {degree}")
-    if show_steps:
-        lines += ["  " + line for line in equation.steps()]
-    lines.append(str(equation))
-    return lines

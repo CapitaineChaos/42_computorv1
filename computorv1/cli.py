@@ -1,7 +1,6 @@
 import os
 import sys
 
-from .display import render
 from .errors import ComputorError
 from .parser import parse
 from .reduce import MAX_REDUCED_DISP, dense
@@ -60,7 +59,7 @@ def answer(source, show_steps):
     try:
         coefficients, degree, name = parse(source)
         p = dense(coefficients, degree) if degree <= MAX_REDUCED_DISP else None
-        lines = render(p, degree, solve(p, degree, name), name, show_steps)
+        lines = solve(p, degree, name).lines(show_steps)
     except (ComputorError, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False

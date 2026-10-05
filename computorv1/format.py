@@ -37,7 +37,7 @@ def real(x):
     return fmt(x)
 
 
-# Nombre négatif entre parenthèses, dans une formule : 4 * (-9.3) * 4.
+# Si négatif on met des parenthèses
 def wrap(x):
     return f"({real(x)})" if x < 0 else real(x)
 
@@ -57,7 +57,7 @@ def imaginary(y):
     return ("" if p == 1 else str(p)) + "i" + ("" if q == 1 else f"/{q}")
 
 
-# Solution complexe : couple (partie réelle, partie imaginaire).
+# Nombre complexe : (partie réelle, partie imaginaire)
 def root(r):
     if not isinstance(r, tuple):
         return real(r)

@@ -1,10 +1,10 @@
-from .equation import Equation
+from .eq import Equation
 from .format import real, wrap
 
 
 class Linear(Equation):
-    def __init__(self, p, name):
-        super().__init__(name)
+    def __init__(self, p, degree, name):
+        super().__init__(p, degree, name)
         self.b, self.a = p
         self.x = -self.b / self.a
 
@@ -15,5 +15,5 @@ class Linear(Equation):
             f"{name} = -b / a = {real(-b)} / {wrap(a)} = {real(self.x)}",
         ]
 
-    def __str__(self):
-        return f"The solution is:\n{self.name} = {real(self.x)}"
+    def solution(self):
+        return ["The solution is:", f"{self.name} = {real(self.x)}"]

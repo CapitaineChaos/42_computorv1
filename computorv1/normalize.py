@@ -90,8 +90,7 @@ def unknown_name(source):
 def split_sides(source):
     sides = SIDES.fullmatch(source)
     if sides is None:
-        message = "expected one '=' between two sides"
-        raise ComputorError(message)
+        raise ComputorError("expected one '=' between two sides")
     return sides.group(1), sides.group(2)
 
 
@@ -99,8 +98,7 @@ def split_sides(source):
 def check_characters(source):
     parenthesis = PARENTHESIS.search(source)
     if parenthesis is not None:
-        message = "parentheses are not supported, expand the product first"
-        raise ComputorError(message)
+        raise ComputorError("parentheses are not supported")
     forbidden = FORBIDDEN.search(source)
     if forbidden is not None:
         raise ComputorError(f"unexpected character '{forbidden.group()}'")
@@ -113,8 +111,7 @@ def check_characters(source):
     second = SECOND_UNKNOWN.search(source)
     if second is not None:
         first, other = second.groups()
-        message = f"second unknown '{other}', '{first}' is already the unknown"
-        raise ComputorError(message)
+        raise ComputorError(f"second unknown '{other}', '{first}' is already the unknown")
 
 
 # doc: https://docs.python.org/3/library/re.html#re.sub
