@@ -4,12 +4,10 @@ from .fraction import sqrt
 
 
 
-
-
 class Quadratic(Equation):
-    def __init__(self, p, degree, name, delta):
-        super().__init__(p, degree, name)
-        self.c, self.b, self.a = p
+    def __init__(self, coeffs, degree, name, delta):
+        super().__init__(coeffs, degree, name)
+        self.c, self.b, self.a = self.p
         self.delta = delta
         self.h = -self.b / (2 * self.a)
         self.k = -delta / (4 * self.a)
@@ -22,8 +20,8 @@ class Quadratic(Equation):
             f"     a = {real(a)}",
             f"     b = {real(b)}",
             f"     c = {real(c)}",
-            f"delta  = b² - 4ac",
-            f"       = {wrap(b)}² - 4 * {wrap(a)} * {wrap(c)}",
+            f"delta  = b^2 - 4ac",
+            f"       = {wrap(b)}^2 - 4 * {wrap(a)} * {wrap(c)}",
             f"       = {real(delta)}",
             f"vertex = (-b / 2a, -delta / 4a)",
             f"       = (-{wrap(b)}/(2*{wrap(a)}), -{wrap(delta)}/(4*{wrap(a)}))",
@@ -48,8 +46,8 @@ class DoubleRoot(Quadratic):
 
 
 class TwoRoots(Quadratic):
-    def __init__(self, p, degree, name, delta):
-        super().__init__(p, degree, name, delta)
+    def __init__(self, coeffs, degree, name, delta):
+        super().__init__(coeffs, degree, name, delta)
         self.x1, self.x2 = distinct_roots(self.a, self.b, self.c, sqrt(delta))
 
     def root_steps(self):
@@ -68,8 +66,8 @@ class TwoRoots(Quadratic):
 
 
 class ComplexRoots(Quadratic):
-    def __init__(self, p, degree, name, delta):
-        super().__init__(p, degree, name, delta)
+    def __init__(self, coeffs, degree, name, delta):
+        super().__init__(coeffs, degree, name, delta)
         self.im = sqrt(-delta) / (2 * self.a)
 
     def root_steps(self):

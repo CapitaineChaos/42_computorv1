@@ -10,7 +10,7 @@ RESET = "\033[0m"
 COLORS = [
     (re.compile(r"[+-]"), YELLOW),
     (re.compile(r"\*"), GREEN),
-    (re.compile(r"\^-?\d+"), CYAN),
+    (re.compile(r"\^\d+"), CYAN),
 ]
 
 

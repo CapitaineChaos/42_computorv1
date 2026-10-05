@@ -18,7 +18,7 @@ from computorv1.errors import ComputorError  # noqa: E402
 from computorv1.format import fmt, fraction, terminates  # noqa: E402
 from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
 from computorv1.parser import parse  # noqa: E402
-from computorv1.reduce import MAX_REDUCED_DISP, dense  # noqa: E402
+from computorv1.reduce import MAX_REDUCED_DISP, coeffs_to_array  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 
 
@@ -26,7 +26,7 @@ from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 # sans tenir compte de MAX_REDUCED_DISP : ce que le corpus vérifie est la réduction.
 def reduced(source):
     coefficients, degree, _ = parse(source)
-    return [float(c) for c in dense(coefficients, degree)]
+    return [float(c) for c in coeffs_to_array(coefficients, degree)]
 
 
 def run(*argv):
@@ -103,7 +103,6 @@ class FreeForm(unittest.TestCase):
     def test_normalizations(self):
         self.assertEqual(reduced("3x = 1"), [-1.0, 3.0])
         self.assertEqual(reduced("X^0 * 8 = 2X"), [8.0, -2.0])
-        self.assertEqual(reduced("x - - 2 = 0"), [2.0, 1.0])
         self.assertEqual(reduced("-x^2 = 4"), [-4.0, 0.0, -1.0])
         self.assertEqual(reduced("9.3X^10 = 0.5"), [-0.5] + [0.0] * 9 + [9.3])
         self.assertEqual(reduced(".5 = 5.X"), [0.5, -5.0])
@@ -119,8 +118,12 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("X.5 = 1"), [-1.0, 0.5])
 
     def test_signed_coefficients(self):
-        self.assertEqual(reduced("-0.5 * X^0 + -3 * X^1 = 0"), [-0.5, -3.0])
-        self.assertEqual(reduced("X = - -2"), [-2.0, 1.0])
+        self.assertEqual(reduced("-0.5 * X^0 + 3 * -X^1 = 0"), [-0.5, -3.0])
+
+    def test_consecutive_signs_refused(self):
+        for source in ("--x = 1", "x - - 2 = 0", "1 + -3x = 0", "X = - -2"):
+            with self.assertRaises(ComputorError, msg=source):
+                parse(source)
 
     def test_high_exponents_cancel(self):
         self.assertEqual(reduced("x^20 + x = x^20 + 1"), [-1.0, 1.0])
@@ -152,17 +155,15 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("-2^2 + 3x = 0"), [-4.0, 3.0])
         self.assertEqual(reduced("-22^2 = 484x"), [-484.0, -484.0])
         self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 9.61])
-        self.assertEqual(reduced("-2^-3 + 3x + 2x = 0"), [-0.125, 5.0])
         with self.assertRaises(ComputorError):
             parse("2^0.5 = x")
-        with self.assertRaises(ZeroDivisionError):
-            parse("0^-1 = 1")
         # Plus de seuil sur l'exposant : 1^1001 est instantané, donc il est calculé.
         self.assertEqual(reduced("1^1001 = x"), [1.0, -1.0])
 
     # Refusées à la conversion en float, donc au rendu et non au parsing.
     def test_magnitudes_refused(self):
-        for source in ("10^400 = x", "51X841 = X*X18*99⁻¹59", "99^-159 * X^2 + X + 1 = 0"):
+        tiny = "0." + "0" * 317 + "494315"
+        for source in ("10^400 = x", "51X841 = X*X18*" + tiny, tiny + " * X^2 + X + 1 = 0"):
             status, _, err = run(source)
             self.assertEqual(status, 1, source)
             self.assertEqual(err, "computor: number too large\n", source)
@@ -178,35 +179,35 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(err, "computor: number too large\n")
 
     def test_power_underflow(self):
-        status, _, err = run("2^-999999999 = x")
+        status, _, err = run("0.5^999999999 = x")
         self.assertEqual((status, err), (1, "computor: number too small\n"))
         self.assertEqual(reduced("1^999999999 = x"), [1.0, -1.0])
 
     # 1e-317 est représentable, même dénormalisé : plus rien ne justifie de le refuser.
     def test_subnormal_is_solved(self):
-        _, out, _ = run("99^-159 = x")
+        _, out, _ = run("0." + "0" * 317 + "494315 = x")
         self.assertIn("x = 4.94315e-318\n", out)
 
     def test_chained_exponents_refused(self):
-        for source in ("x^2^3 = 0", "2^3^2 = x", "9^9^9 = x", "x²^3 = 1"):
+        for source in ("x^2^3 = 0", "2^3^2 = x", "9^9^9 = x"):
             with self.assertRaises(ComputorError, msg=source):
                 parse(source)
 
-    def test_unicode_exponents(self):
-        self.assertEqual(reduced("3x² + 4x + 4 = 8"), [-4.0, 4.0, 3.0])
-        self.assertEqual(reduced("2y³ = 16"), [-16.0, 0.0, 0.0, 2.0])
-        self.assertEqual(reduced("X¹⁰ = 1"), [-1.0] + [0.0] * 9 + [1.0])
-        self.assertEqual(reduced("X⁰ = 1"), [])
-        self.assertEqual(reduced("x^2 = x²"), [])
-        self.assertEqual(reduced("x⁻¹ = x⁻¹"), [])
-        self.assertEqual(reduced("x⁺² = 4"), [-4.0, 0.0, 1.0])
-        self.assertEqual(reduced("3²x = 9"), [-9.0, 9.0])
+    def test_unicode_exponents_refused(self):
+        for source in ("3x² = 1", "X¹⁰ = 1", "x⁻¹ = 1"):
+            with self.assertRaises(ComputorError, msg=source):
+                parse(source)
 
-    def test_negative_exponent_must_cancel(self):
-        self.assertEqual(reduced("x^-1 = x^-1"), [])
-        self.assertEqual(reduced("x^-1 + 1 = x^-1"), [1.0])
-        with self.assertRaises(ComputorError):
-            parse("1 * X^-1 + 1 * X^0 = 0")
+    # "2.5." était lu 2.5 : le point final retiré, l'autre restait.
+    def test_several_points_refused(self):
+        for source in ("2..5 = x", "2.5. = x", "1.2.3 = x", "..5 = x"):
+            with self.assertRaises(ComputorError, msg=source):
+                parse(source)
+
+    def test_signed_exponents_refused(self):
+        for source in ("x^-1 = x^-1", "x^+2 = 1", "x^ -1 = 1", "2^-3 = x", "0^-1 = 1"):
+            with self.assertRaises(ComputorError, msg=source):
+                parse(source)
 
     def test_exact_arithmetic(self):
         self.assertEqual(reduced("0.1 * x + 0.2 * x = 0.3 * x"), [])
@@ -214,7 +215,7 @@ class FreeForm(unittest.TestCase):
 
     def test_close_values_stay_different(self):
         coefficients, degree, _ = parse("x = 1.0000000001 * x")
-        self.assertEqual(dense(coefficients, degree), [0, Fraction(-1, 10**10)])
+        self.assertEqual(coeffs_to_array(coefficients, degree), [0, Fraction(-1, 10**10)])
         _, out, _ = run("x^2 + 2x + 0.9999999999 = 0")
         self.assertIn("the two solutions are", out)
 
@@ -233,10 +234,10 @@ class FreeForm(unittest.TestCase):
 
     def test_irrational_roots_precision(self):
         # -b + √Δ avec b ≈ √Δ : x1 valait -49960 au lieu de -1.
-        _, out, _ = run("10^-20 x^2 + x + 1 = 0")
+        _, out, _ = run("0." + "0" * 19 + "1 x^2 + x + 1 = 0")
         self.assertTrue(out.endswith("x1 = -1\nx2 = -100000000000000000000\n"))
         # √Δ à 15 décimales fixes valait 0 : 15 chiffres significatifs maintenant.
-        _, out, _ = run("x^2 - 2*10^-40 = 0")
+        _, out, _ = run("x^2 - 0." + "0" * 39 + "2 = 0")
         self.assertTrue(out.endswith("x1 = 1.41421e-20\nx2 = -1.41421e-20\n"))
 
 

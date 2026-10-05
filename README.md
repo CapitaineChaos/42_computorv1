@@ -59,16 +59,15 @@ Beyond the subject's `a * X^n` form:
 | any single letter         | `3y + 1 = 0`, `B^2 = B`  | the unknown, named as typed    |
 | `*` left out              | `3x = 1`, `x3 = 1`       | `3 * x^1`                      |
 | exponent left out         | `x = 1`                  | `x^1`                          |
-| unicode exponents         | `3x² = 1`, `X¹⁰ = 1`     | `3 * x^2`, `X^10`              |
 | several X in one term     | `X * X = 4`, `X^2 * X`   | exponents add: `X^2`, `X^3`    |
 | powers of numbers         | `2^3 * X = 1`            | `8 * X^1`                      |
 | sign before a power       | `-2^2 + 3x = 0`          | `-(2^2)`, so `-4`              |
-| several signs             | `--x = 1`, `-1 * -X = 0` | `+x^1`, `+X^1`                 |
+| sign after `*`            | `-1 * -X = 0`            | `+X^1`                         |
 | missing digit around `.`  | `.5 = X`, `5. = X`       | `0.5`, `5`                     |
 | terms in any order        | `X^2 + 1 = X^2 + X`      | reduced to `1 - X = 0`         |
 
 The first letter found is the unknown, exactly as typed, and the whole output uses it: reduced
-form, calculation lines and solutions. `b² = 4` gives `1 * b^2`, then `b1 = 2` and `b2 = -2`.
+form, calculation lines and solutions. `b^2 = 4` gives `1 * b^2`, then `b1 = 2` and `b2 = -2`.
 Any other letter, even the same one in another case, is refused. Without any letter, `X`.
 If the unknown is `a`, `b` or `c`, like a coefficient in the calculation lines, a last line
 says so: `(b is the unknown of the equation, not the coefficient b)`.
@@ -85,9 +84,11 @@ does not recover precision lost during the power calculation.
 | `2(x + 1) = 0`     | parentheses are not supported            | would need expanding the product           |
 | `2^3^2 = x`        | chained exponent is ambiguous            | see below                                  |
 | `X^1.5 = 1`        | exponent must be an integer              | the subject has integer exponents only     |
-| `x^-1 = 1`         | negative exponent after reduction        | not a polynomial                           |
+| `x^-1`, `x^+2`     | exponent must not have a sign            | the subject has natural exponents only     |
 | `x^11 = 1`         | reduced degree greater than 10           | `MAX_DEGREE` in `reduce.py`                |
 | `2 3 = x`          | missing operator between numbers         | removing spaces would read `23`            |
+| `2..5`, `2.5.`     | number with more than one point          | `2.5.` would read as `2.5`                 |
+| `--x`, `x + -1`    | consecutive signs                        | write a single sign                        |
 | `2^999999999 = x`  | number too large                         | floating-point power overflows             |
-| `2^-999999999 = x` | number too small                         | nonzero power rounds to zero               |
+| `0.5^9999 = x`     | number too small                         | nonzero power rounds to zero               |
 | `x = 1 = 2`, `= 1` | expected one '=' between two sides       |                                            |
