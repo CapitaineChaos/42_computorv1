@@ -51,8 +51,6 @@ def multiply_factors(term):
             piece = piece[1:]
         factor = FACTOR.fullmatch(piece)
         if factor is None:
-            if piece.count("^") > 1:
-                raise ComputorError("chained exponent is ambiguous, 2^3^2 is either 64 or 512")
             raise ComputorError("invalid factor")
         number, number_exponent, exponent = factor.groups()
         if number is not None:

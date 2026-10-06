@@ -1,6 +1,7 @@
 from .eq_linear import Linear
 from .eq_quaddratic import TwoRoots, DoubleRoot, ComplexRoots
 from .eq import AllReals, NoSolution, TooHigh
+from .fraction import Fraction
 
 
 def build_eq(coeffs, degree, name):
@@ -11,7 +12,7 @@ def build_eq(coeffs, degree, name):
     if degree == 1:
         return Linear(coeffs, degree, name)
     if degree == 2:
-        c, b, a = coeffs
+        c, b, a = (coeffs.get(d, Fraction(0)) for d in range(3))
         delta = b * b - 4 * a * c
         if delta > 0:
             return TwoRoots(coeffs, degree, name, delta)

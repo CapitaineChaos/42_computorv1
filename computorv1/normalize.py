@@ -4,7 +4,7 @@ NORMALIZATIONS = [
 
     # Espaces supprimés : "3 * X" -> "3*X"
     (r"\s+", ""),
-    # Remplacer les inconnues par X pour mieux identifier
+    # Remplacer les inconnues par X pour mieux utiliser dans les regex
     (r"[A-Za-z]", "X"),
 
     # Zéro manquant devant le point : ".5" -> "0.5"

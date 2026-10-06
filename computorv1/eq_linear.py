@@ -5,7 +5,7 @@ from .format import real, wrap
 class Linear(Equation):
     def __init__(self, p, degree, name):
         super().__init__(p, degree, name)
-        self.b, self.a = p
+        self.b, self.a = self.p
         self.x = -self.b / self.a
 
     def steps(self):

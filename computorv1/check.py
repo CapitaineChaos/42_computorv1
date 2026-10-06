@@ -24,11 +24,20 @@ BAD_EXPONENT = re.compile(r"\^\s*\d*\.\d*")
 # Pas de signe dans l'exposant
 SIGNED_EXPONENT = re.compile(r"\^\s*[+-]")
 
+# Exposant enchaîné ou doublé "x^2^3", "x^^2"
+CHAINED_EXPONENT = re.compile(r"\^[\d\s]*\^")
+
+# Exposant absent ou non numérique "x^", "x^ = 1", "1^X", "x^*2"
+MISSING_EXPONENT = re.compile(r"\^\s*([^\d\s]|$)")
+
 # Un seul point par nombre "2..5", "2.5.", "1.2.3"
 SEVERAL_POINTS = re.compile(r"\.\d*\.")
 
 # Pas deux signes à la suite "--x", "x - - 2", "1 + -3"
 CONSECUTIVE_SIGNS = re.compile(r"[+-]\s*[+-]")
+
+# Signe sans terme "x + = 1", "1 * X^0 +", "3x+^2", "- * X"
+LONE_SIGN = re.compile(r"[+-]\s*([^\d.A-Za-z\s]|$)")
 
 
 # Saisie valide => nom de l'inconnue
@@ -70,12 +79,21 @@ def check_characters(source):
     signed_exponent = SIGNED_EXPONENT.search(source)
     if signed_exponent is not None:
         raise ComputorError(f"exponent must not have a sign : {signed_exponent.group()}")
+    chained_exponent = CHAINED_EXPONENT.search(source)
+    if chained_exponent is not None:
+        raise ComputorError(f"chained exponent is ambiguous : {chained_exponent.group()}")
+    missing_exponent = MISSING_EXPONENT.search(source)
+    if missing_exponent is not None:
+        raise ComputorError(f"exponent must be an integer : {missing_exponent.group()}")
     several_points = SEVERAL_POINTS.search(source)
     if several_points is not None:
         raise ComputorError(f"number with more than one point : {several_points.group()}")
     consecutive_signs = CONSECUTIVE_SIGNS.search(source)
     if consecutive_signs is not None:
         raise ComputorError(f"consecutive signs : {consecutive_signs.group()}")
+    lone_sign = LONE_SIGN.search(source)
+    if lone_sign is not None:
+        raise ComputorError(f"missing term after sign : {lone_sign.group()}")
     name = variable_name(source)
     test = UNKNOWN.search(source.replace(name, ""))
     if test is not None:
