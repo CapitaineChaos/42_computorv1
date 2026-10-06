@@ -1,6 +1,5 @@
 from .display import reduced_form
-from .reduce import MAX_REDUCED_DISP
-from .fraction import Fraction
+from .reduce import MAX_REDUCED_DISP, coeffs_to_array
 
 COEFFICIENTS = ("a", "b", "c")
 
@@ -10,13 +9,12 @@ class Equation:
         if degree > MAX_REDUCED_DISP:
             self.p = None
         else:
-            self.p = [coeffs.get(d, Fraction(0)) for d in range(degree + 1)]
+            self.p = coeffs_to_array(coeffs, degree)
 
         self.degree = degree
         self.name = name
 
     def lines(self, show_steps):
-        pass
         sections = [reduced_form(self.p, self.name), self.degree_line()]
         if show_steps:
             sections.append(["  " + line for line in self.steps()])

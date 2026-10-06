@@ -79,12 +79,14 @@ class Fraction:
             return b / float(a)
         return to_fraction(b) / a
 
+    # math.pow ne sert qu'à lever OverflowError avant de calculer un entier géant ;
+    # le résultat est exact : 3.1^2 = 961/100 et non 9.610000000000001.
     def __pow__(a, n):
         base = 1 / a if n < 0 else a
         value = math.pow(base, abs(n))
         if value == 0.0 and base != 0:
             raise ValueError("number too small")
-        return Fraction(*value.as_integer_ratio())
+        return Fraction(base.numerator ** abs(n), base.denominator ** abs(n))
 
     def __neg__(a):
         return Fraction(-a.numerator, a.denominator)

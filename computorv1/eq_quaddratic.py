@@ -3,7 +3,6 @@ from .format import real, root, wrap
 from .fraction import sqrt
 
 
-
 class Quadratic(Equation):
     def __init__(self, coeffs, degree, name, delta):
         super().__init__(coeffs, degree, name)
@@ -16,14 +15,14 @@ class Quadratic(Equation):
         a, b, c, delta = self.a, self.b, self.c, self.delta
         h, k = self.h, self.k
         return self.note() + [
-            f"Coeffs:",
+            "Coeffs:",
             f"     a = {real(a)}",
             f"     b = {real(b)}",
             f"     c = {real(c)}",
-            f"delta  = b^2 - 4ac",
+            "delta  = b^2 - 4ac",
             f"       = {wrap(b)}^2 - 4 * {wrap(a)} * {wrap(c)}",
             f"       = {real(delta)}",
-            f"vertex = (-b / 2a, -delta / 4a)",
+            "vertex = (-b / 2a, -delta / 4a)",
             f"       = (-{wrap(b)}/(2*{wrap(a)}), -{wrap(delta)}/(4*{wrap(a)}))",
             f"       = ({real(-b)}/{wrap(2*a)}, {real(-delta)}/{wrap(4*a)})",
             f"       = ({real(h)}, {real(k)})",
@@ -53,8 +52,10 @@ class TwoRoots(Quadratic):
     def root_steps(self):
         a, b, delta, name = self.a, self.b, self.delta, self.name
         return [
-            f"{name}1 = (-b + rac(delta)) / 2a = ({real(-b)} + rac({real(delta)})) / {wrap(2 * a)} = {real(self.x1)}",
-            f"{name}2 = (-b - rac(delta)) / 2a = ({real(-b)} - rac({real(delta)})) / {wrap(2 * a)} = {real(self.x2)}",
+            f"{name}1 = (-b + rac(delta)) / 2a"
+            f" = ({real(-b)} + rac({real(delta)})) / {wrap(2 * a)} = {real(self.x1)}",
+            f"{name}2 = (-b - rac(delta)) / 2a"
+            f" = ({real(-b)} - rac({real(delta)})) / {wrap(2 * a)} = {real(self.x2)}",
         ]
 
     def solution(self):

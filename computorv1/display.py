@@ -1,4 +1,5 @@
 import re
+import sys
 
 from .format import fmt
 
@@ -15,7 +16,10 @@ COLORS = [
 
 
 # https://en.wikipedia.org/w/index.php?title=ANSI_escape_code&oldid=1367259551#SGR
+# doc: https://docs.python.org/3/library/io.html#io.IOBase.isatty
 def colorize(text):
+    if not sys.stdout.isatty():
+        return text
     for pattern, color in COLORS:
         text = pattern.sub(color + r"\g<0>" + RESET, text)
     return text

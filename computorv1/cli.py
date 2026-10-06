@@ -1,9 +1,9 @@
 import os
 import sys
 
-from .errors import ComputorError
-from .parser import parse
 from .builder import build_eq
+from .errors import ComputorError
+from .parser_rd import parse
 
 STEPS_FLAGS = ("-s", "--steps")
 

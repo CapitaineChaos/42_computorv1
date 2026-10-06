@@ -1,6 +1,5 @@
 from .fraction import Fraction
 
-
 MAX_REDUCED_DISP = 3
 
 def reduce(left_terms, right_terms):
@@ -9,6 +8,11 @@ def reduce(left_terms, right_terms):
     if not degrees:
         return {}, -1
     return coefficients, max(degrees)
+
+
+# {2: 3, 0: 1}, 2 -> [1, 0, 3]
+def coeffs_to_array(coefficients, degree):
+    return [coefficients.get(d, Fraction(0)) for d in range(degree + 1)]
 
 
 def add_terms(left_terms, right_terms) -> dict[int, Fraction]:

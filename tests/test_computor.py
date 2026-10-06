@@ -17,7 +17,7 @@ from computorv1.cli import main  # noqa: E402
 from computorv1.errors import ComputorError  # noqa: E402
 from computorv1.format import fmt, fraction, terminates  # noqa: E402
 from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
-from computorv1.parser import parse  # noqa: E402
+from computorv1.parser_rd import parse  # noqa: E402
 from computorv1.reduce import MAX_REDUCED_DISP, coeffs_to_array  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 
@@ -40,7 +40,8 @@ class Subject(unittest.TestCase):
     def check(self, source, expected):
         status, out, err = run(source)
         results = [line for line in out.splitlines(True) if not line.startswith("  ")]
-        self.assertEqual((status, "".join(results), err), (0, expected, ""))
+        header = f"computor: equation 1: {source}\n\n"
+        self.assertEqual((status, "".join(results), err), (0, header + expected, ""))
 
     def test_positive(self):
         self.check(
@@ -141,12 +142,12 @@ class FreeForm(unittest.TestCase):
     def test_unknown_name(self):
         self.assertEqual(parse("3b + 1 = 0")[2], "b")
         self.assertEqual(parse("1 = 2")[2], "X")
-        _, out, _ = run("b^2 - 1 = 0")
-        self.assertTrue(out.startswith("Reduced form: -1 * b^0 + 0 * b^1 + 1 * b^2 = 0\n"))
-        self.assertIn("  b1 = (-b + √Δ) / 2a", out)
-        note = "(b is the unknown of the equation, not the coefficient b)\n"
-        self.assertTrue(out.endswith("b1 = 1\nb2 = -1\n" + note))
-        _, out, _ = run("3y = 1")
+        _, out, _ = run("-s", "b^2 - 1 = 0")
+        self.assertIn("\nReduced form: -1 * b^0 + 0 * b^1 + 1 * b^2 = 0\n", out)
+        self.assertIn("  b1 = (-b + rac(delta)) / 2a", out)
+        self.assertIn("  (b is the unknown of the equation, not the coefficient b)\n", out)
+        self.assertTrue(out.endswith("b1 = 1\nb2 = -1\n"))
+        _, out, _ = run("-s", "3y = 1")
         self.assertNotIn("not the coefficient", out)
         _, out, _ = run("2B = 1")
         self.assertTrue(out.endswith("B = 0.5\n"))
@@ -221,9 +222,9 @@ class FreeForm(unittest.TestCase):
 
     def test_exact_delta(self):
         for source in ("x^2 + 0.2x + 0.01 = 0", "x^2 + 10.3x - 10.1x + 0.01 = 0"):
-            _, out, _ = run(source)
+            _, out, _ = run("-s", source)
             self.assertIn("Discriminant is zero", out, source)
-            self.assertIn(" = 0\n  vertex = (-b / 2a, -Δ / 4a) = (-0.1, 0), minimum\n", out)
+            self.assertIn("         = (-0.1, 0)\n         is a minimum\n", out, source)
 
     def test_exact_roots(self):
         # Avec des floats, √36 et 6 s'annulaient mal : x1 valait 1.4803e-16 au lieu de 0.
@@ -257,7 +258,7 @@ class Students42(unittest.TestCase):
     def test_refused_without_crash(self):
         for source, message in REFUSED:
             status, out, err = run(source)
-            self.assertEqual((status, out), (1, ""), source)
+            self.assertEqual((status, out), (1, f"computor: equation 1: {source}\n\n"), source)
             self.assertTrue(err.startswith("computor: " + message), (source, err))
 
     def test_unsolved_without_reduced_form(self):
@@ -314,25 +315,28 @@ class Errors(unittest.TestCase):
 
     def test_empty_argument(self):
         status, out, err = run("")
-        self.assertEqual((status, out), (1, ""))
-        self.assertIn("expected one '='", err)
+        self.assertEqual((status, out), (1, "computor: equation 1: \n\n"))
+        self.assertIn("unexpected end of equation", err)
 
     def test_report(self):
         status, _, err = run("x % 2 = 0")
         self.assertEqual(status, 1)
-        self.assertEqual(err, "computor: unexpected character '%'\n")
+        self.assertEqual(err, "computor: unexpected character '%' at column 3\n")
         _, _, err = run("x = 1 = 2")
-        self.assertEqual(err, "computor: expected one '=' between two sides\n")
+        self.assertEqual(err, "computor: unexpected '=' at column 7\n")
 
 
 class Extras(unittest.TestCase):
     def test_steps(self):
+        _, out, _ = run("-s", "x^2 - x - 6 = 0")
+        self.assertIn("  delta  = b^2 - 4ac\n         = (-1)^2 - 4 * 1 * (-6)\n", out)
+        self.assertIn("         = 25\n", out)
+        self.assertIn("  x1 = (-b + rac(delta)) / 2a = (1 + rac(25)) / 2 = 3\n", out)
+        self.assertIn("         = (0.5, -6.25)\n         is a minimum\n", out)
+        _, out, _ = run("-s", "-x^2 + 1 = 0")
+        self.assertIn("         = (0, 1)\n         is a maximum\n", out)
         _, out, _ = run("x^2 - x - 6 = 0")
-        self.assertIn("  Δ = b² - 4ac = (-1)² - 4 * 1 * (-6) = 25\n", out)
-        self.assertIn("  x1 = (-b + √Δ) / 2a = (1 + √25) / 2 = 3\n", out)
-        self.assertIn("  vertex = (-b / 2a, -Δ / 4a) = (0.5, -6.25), minimum\n", out)
-        _, out, _ = run("-x^2 + 1 = 0")
-        self.assertIn("(0, 1), maximum\n", out)
+        self.assertNotIn("delta", out)
 
     def test_stdin(self):
         sys.stdin, stdin = io.TextIOWrapper(io.BytesIO(b"x = 1\n\n2 * x = 1\n")), sys.stdin
@@ -349,9 +353,9 @@ class EntryPoint(unittest.TestCase):
         with tempfile.TemporaryDirectory() as copy:
             shutil.copy(join(root, "computor"), copy)
             shutil.copytree(join(root, "computorv1"), join(copy, "computorv1"))
-            solver = join(copy, "computorv1", "solver.py")
+            solver = join(copy, "computorv1", "builder.py")
             source = open(solver).read()
-            header = "def solve(p, degree, name):"
+            header = "def build_eq(coeffs, degree, name):"
             open(solver, "w").write(
                 source.replace(header, header + "\n    raise RuntimeError('boum')", 1)
             )
@@ -391,17 +395,18 @@ class Colors(unittest.TestCase):
 
 
 class Streams(unittest.TestCase):
+    # Vrai pipe fermé en lecture : main redirige stdout vers /dev/null avec dup2,
+    # ce qui exige un descripteur réel.
     def test_broken_pipe(self):
-        class Closed(io.StringIO):
-            def write(self, text):
-                raise BrokenPipeError(32, "Broken pipe")
-
-        out, stdout = Closed(), sys.stdout
+        read, write = os.pipe()
+        os.close(read)
+        out, stdout = open(write, "w"), sys.stdout
         try:
             sys.stdout = out
-            self.assertEqual(main(["x = 1"]), 120)
+            self.assertEqual(main(["x = 1"]), 1)
         finally:
             sys.stdout = stdout
+            out.close()
 
     def test_stdin_bad_bytes(self):
         stdin = sys.stdin
@@ -415,7 +420,7 @@ class Streams(unittest.TestCase):
 
     def test_argv_bad_bytes(self):
         status, _, err = run("x\udcff = 0")
-        self.assertEqual((status, err), (1, "computor: unexpected character '�'\n"))
+        self.assertEqual((status, err), (1, "computor: unexpected character '�' at column 2\n"))
 
 
 class Number(unittest.TestCase):
