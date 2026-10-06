@@ -17,7 +17,7 @@ from computorv1.cli import main  # noqa: E402
 from computorv1.errors import ComputorError  # noqa: E402
 from computorv1.format import fmt, fraction, terminates  # noqa: E402
 from computorv1.fraction import Fraction, from_decimal, gcd, sqrt  # noqa: E402
-from computorv1.parser_rd import parse  # noqa: E402
+from computorv1.parser import parse  # noqa: E402
 from computorv1.reduce import MAX_REDUCED_DISP, coeffs_to_array  # noqa: E402
 from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 
@@ -27,6 +27,15 @@ from tests.corpus import CRASHERS, EQUATIONS, REFUSED, UNSOLVED  # noqa: E402
 def reduced(source):
     coefficients, degree, _ = parse(source)
     return [float(c) for c in coeffs_to_array(coefficients, degree)]
+
+
+# Code de l'erreur levée pour une saisie refusée.
+def refusal(source):
+    try:
+        parse(source)
+    except ComputorError as error:
+        return error.code
+    raise AssertionError(f"accepted: {source!r}")
 
 
 def run(*argv):
@@ -123,16 +132,20 @@ class FreeForm(unittest.TestCase):
 
     def test_consecutive_signs_refused(self):
         for source in ("--x = 1", "x - - 2 = 0", "1 + -3x = 0", "X = - -2"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+            self.assertEqual(refusal(source), "ST01", source)
+
+    # Un signe collé derrière '*' est ambigu, séparé par un espace il est accepté.
+    def test_sign_after_star(self):
+        for source in ("3 *-x = 1", "3*-x = 1"):
+            self.assertEqual(refusal(source), "TE01", source)
+        self.assertEqual(reduced("3 * -x = 1"), [-1.0, -3.0])
 
     def test_high_exponents_cancel(self):
         self.assertEqual(reduced("x^20 + x = x^20 + 1"), [-1.0, 1.0])
         self.assertEqual(reduced("x^999999999 = x^999999999"), [])
 
     def test_case(self):
-        with self.assertRaises(ComputorError):
-            parse("x^2 = X")
+        self.assertEqual(refusal("x^2 = X"), "FA03")
 
     def test_any_single_letter(self):
         self.assertEqual(reduced("y^2 = 4"), [-4.0, 0.0, 1.0])
@@ -156,8 +169,7 @@ class FreeForm(unittest.TestCase):
         self.assertEqual(reduced("-2^2 + 3x = 0"), [-4.0, 3.0])
         self.assertEqual(reduced("-22^2 = 484x"), [-484.0, -484.0])
         self.assertEqual(reduced("3.1^2x^2 = 0"), [0.0, 0.0, 9.61])
-        with self.assertRaises(ComputorError):
-            parse("2^0.5 = x")
+        self.assertEqual(refusal("2^0.5 = x"), "EX03")
         # Plus de seuil sur l'exposant : 1^1001 est instantané, donc il est calculé.
         self.assertEqual(reduced("1^1001 = x"), [1.0, -1.0])
 
@@ -191,24 +203,22 @@ class FreeForm(unittest.TestCase):
 
     def test_chained_exponents_refused(self):
         for source in ("x^2^3 = 0", "2^3^2 = x", "9^9^9 = x"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+            self.assertEqual(refusal(source), "EX04", source)
 
     def test_unicode_exponents_refused(self):
         for source in ("3x² = 1", "X¹⁰ = 1", "x⁻¹ = 1"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+            self.assertEqual(refusal(source), "LX01", source)
 
     # "2.5." était lu 2.5 : le point final retiré, l'autre restait.
+    # "2..5" et "1.2.3" se découpent en deux nombres ("2." ".5"), d'où TE02.
     def test_several_points_refused(self):
-        for source in ("2..5 = x", "2.5. = x", "1.2.3 = x", "..5 = x"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+        sources = (("2..5 = x", "TE02"), ("2.5. = x", "LX01"), ("1.2.3 = x", "TE02"), ("..5 = x", "LX01"))
+        for source, code in sources:
+            self.assertEqual(refusal(source), code, source)
 
     def test_signed_exponents_refused(self):
         for source in ("x^-1 = x^-1", "x^+2 = 1", "x^ -1 = 1", "2^-3 = x", "0^-1 = 1"):
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+            self.assertEqual(refusal(source), "EX02", source)
 
     def test_exact_arithmetic(self):
         self.assertEqual(reduced("0.1 * x + 0.2 * x = 0.3 * x"), [])
@@ -256,10 +266,10 @@ class Students42(unittest.TestCase):
             self.assertTrue(out or err, cause)
 
     def test_refused_without_crash(self):
-        for source, message in REFUSED:
-            status, out, err = run(source)
+        for source, code in REFUSED:
+            status, out, _ = run(source)
             self.assertEqual((status, out), (1, f"computor: equation 1: {source}\n\n"), source)
-            self.assertTrue(err.startswith("computor: " + message), (source, err))
+            self.assertEqual(refusal(source), code, source)
 
     def test_unsolved_without_reduced_form(self):
         for source, degree in UNSOLVED:
@@ -284,26 +294,29 @@ class Errors(unittest.TestCase):
     # en « internal error » et 70 au lieu du message.
     def test_refused_by_the_parser(self):
         sources = (
-            "x % 2 = 0",
-            "x + y = 0",
-            "x^0.5 = 2",
-            "2 3 = X",
-            "X^1 0 = 1",
-            "5 * X^0",
-            "x = 1 = 2",
-            "= x",
-            "x =   ",
-            "x^-1 = 0",
-            "x^1.5 = 0",
-            "x + = 0",
-            "3 * * X = 1",
-            "3 * = X",
-            "+ * X = 1",
-            "* X = 1",
+            ("x % 2 = 0", "LX01"),
+            ("x + y = 0", "FA03"),
+            ("x^0.5 = 2", "EX03"),
+            ("2 3 = X", "TE02"),
+            ("X^1 0 = 1", "TE02"),
+            ("5 * X^0", "EQ02"),
+            ("x = 1 = 2", "EQ03"),
+            ("= x", "EQ01"),
+            ("x =   ", "EQ04"),
+            ("x^-1 = 0", "EX02"),
+            ("x^1.5 = 0", "EX03"),
+            ("x + = 0", "FA01"),
+            ("3 * * X = 1", "FA01"),
+            ("3 * = X", "FA01"),
+            ("+ * X = 1", "FA01"),
+            ("* X = 1", "FA01"),
+            ("", "FA01"),
+            ("3 * - -x = 1", "FA02"),
+            ("^2 = x", "EX05"),
+            ("3x=^2", "EX06"),
         )
-        for source in sources:
-            with self.assertRaises(ComputorError, msg=source):
-                parse(source)
+        for source, code in sources:
+            self.assertEqual(refusal(source), code, source)
 
     def test_no_equation(self):
         sys.stdin, stdin = io.TextIOWrapper(io.BytesIO(b"\n  \n")), sys.stdin
@@ -316,14 +329,14 @@ class Errors(unittest.TestCase):
     def test_empty_argument(self):
         status, out, err = run("")
         self.assertEqual((status, out), (1, "computor: equation 1: \n\n"))
-        self.assertIn("unexpected end of equation", err)
+        self.assertEqual(err, "computor: (FA01) factor expected at column 1\n")
 
     def test_report(self):
         status, _, err = run("x % 2 = 0")
         self.assertEqual(status, 1)
-        self.assertEqual(err, "computor: unexpected character '%' at column 3\n")
+        self.assertEqual(err, "computor: (LX01) unexpected character '%' at column 3\n")
         _, _, err = run("x = 1 = 2")
-        self.assertEqual(err, "computor: unexpected '=' at column 7\n")
+        self.assertEqual(err, "computor: (EQ03) unexpected '=' at column 7\n")
 
 
 class Extras(unittest.TestCase):
@@ -420,7 +433,7 @@ class Streams(unittest.TestCase):
 
     def test_argv_bad_bytes(self):
         status, _, err = run("x\udcff = 0")
-        self.assertEqual((status, err), (1, "computor: unexpected character '�' at column 2\n"))
+        self.assertEqual((status, err), (1, "computor: (LX01) unexpected character '�' at column 2\n"))
 
 
 class Number(unittest.TestCase):

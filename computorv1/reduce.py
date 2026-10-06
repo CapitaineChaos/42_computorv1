@@ -10,7 +10,6 @@ def reduce(left_terms, right_terms):
     return coefficients, max(degrees)
 
 
-# {2: 3, 0: 1}, 2 -> [1, 0, 3]
 def coeffs_to_array(coefficients, degree):
     return [coefficients.get(d, Fraction(0)) for d in range(degree + 1)]
 

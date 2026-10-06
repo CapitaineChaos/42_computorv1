@@ -3,12 +3,13 @@ import sys
 
 from .builder import build_eq
 from .errors import ComputorError
-from .parser_rd import parse
+from .parser import parse
 
 STEPS_FLAGS = ("-s", "--steps")
 
 
 def main(argv):
+
     show_steps = any(arg in STEPS_FLAGS for arg in argv)
     argv = [arg for arg in argv if arg not in STEPS_FLAGS]
     sources = read_args(argv) if argv else read_stdin()
