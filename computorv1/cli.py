@@ -57,14 +57,15 @@ def read_stdin():
 
 def answer(source, show_steps):
     try:
-        coeffs, degree, name = parse(source)
-        eq = build_eq(coeffs, degree, name)
-        lines = eq.lines(show_steps)
+        # coeffs, degree, name = parse(source)
+        # eq = build_eq(coeffs, degree, name)
+        # lines = eq.lines(show_steps)
+        parse(source)
     except (ComputorError, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False
     except (OverflowError, MemoryError):
         print("computor: number too large", file=sys.stderr)
         return False
-    print("\n".join(lines), flush=True)
+    # print("\n".join(lines), flush=True)
     return True

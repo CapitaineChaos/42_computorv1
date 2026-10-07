@@ -9,8 +9,10 @@ class Token(NamedTuple):
     kind: str
     text: str
     column: int
-    position: int
+    pos: int
     prevsp: bool = False
+
+    __repr__ = lambda self: f"Token({self.kind}, {self.text})"
 
 def tokenize(code):
     token_specification = [
@@ -50,4 +52,4 @@ def tokenize(code):
             )
         yield Token(kind, value, column, count, prevsp)
         prevsp = False
-    yield Token('END', '', len(code), count, prevsp)
+    yield Token('END', '', len(code) - 1, count, prevsp)
