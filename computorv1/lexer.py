@@ -46,10 +46,7 @@ def tokenize(code):
             prevsp = True
             continue
         elif kind == 'MISMATCH':
-            raise ComputorError(
-                f"unexpected character '{mo.group()}' at column {mo.start() + 1}",
-                "LXR_01"
-            )
+            raise ComputorError("LXR_01", text=mo.group(), col=mo.start() + 1)
         yield Token(kind, value, column, count, prevsp)
         prevsp = False
     yield Token('END', '', len(code) - 1, count, prevsp)

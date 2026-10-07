@@ -1,18 +1,14 @@
-SHM     := /dev/shm/computorv1
-VENV    := $(SHM)/.venv
-SRC     := computor computorv1 tests
+VENV    := .venv
+PYTHON  := $(VENV)/bin/python
 RUFF    := $(VENV)/bin/ruff
+SRC     := computor computorv1 tests
 
 .DEFAULT_GOAL := help
-.PHONY: help sync venv run test lint format clean fclean re
+.PHONY: help venv run test provisoire lint format clean fclean re
 
 help:
 	@grep -E '^[a-z]+:' Makefile | cut -d: -f1 | tr '\n' ' '
 	@echo
-
-sync:
-	@mkdir -p $(SHM)
-	@rsync -a --delete --exclude __pycache__ $(SRC) $(SHM)/
 
 venv: $(RUFF)
 
@@ -31,11 +27,16 @@ ARG     := $(or $(ARG),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
 .DEFAULT: ; @:
 endif
 
-run: sync
-	@cd $(SHM) && python3 ./computor $(if $(ARG),"$(ARG)") || [ $$? -eq 130 ]
+run: venv
+	@$(PYTHON) ./computor $(if $(ARG),"$(ARG)") || [ $$? -eq 130 ]
 
-test: sync
-	cd $(SHM) && python3 -m unittest discover -s tests -v
+# `make test T=saisie` runs tests/test_saisie.py alone, `make test` runs them all
+test: venv
+	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
+
+# input tests only, mismatches only, while the parser is being written
+provisoire: venv
+	@$(PYTHON) tests/provisoire.py
 
 lint: venv
 	$(RUFF) check --no-cache $(SRC)
@@ -45,9 +46,9 @@ format: venv
 	$(RUFF) format --no-cache $(SRC)
 
 clean:
-	rm -rf $(SHM)/*/__pycache__
+	rm -rf computorv1/__pycache__ tests/__pycache__ .ruff_cache
 
-fclean:
-	rm -rf $(SHM)
+fclean: clean
+	rm -rf $(VENV)
 
-re: fclean sync venv
+re: fclean venv
