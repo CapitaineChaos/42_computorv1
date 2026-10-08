@@ -6,9 +6,13 @@ from .fraction import Fraction, from_decimal
 from .lexer import tokenize, Token
 from .reduce import reduce
 
+MAX_LEN = 200
+
 
 def parse(source):
     logging.basicConfig(level=logging.DEBUG, format="\033[36mPARSER:\033[0m \033[35m%(message)s\033[0m")
+    if len(source) > MAX_LEN:
+        raise ComputorErr("LEN_01", length=len(source), max=MAX_LEN)
     parser = Parser(source)
     # left, right = parser.eq_sides()
     parser.parse()
@@ -30,6 +34,9 @@ class Parser:
         self.var = None
         self.monomials : list[Monomial] = []
         self.current_monomial : Monomial | None = None
+        self.hist = ""
+        self.histn = ""
+        self.histo = []
 
     @property
     def name(self):
@@ -49,14 +56,58 @@ class Parser:
         self.store_monomial()
         self.current_monomial = Monomial([], 0, sign)
 
+    def history(self, token):
+        self.hist += token.code
+        if token.kind != "SKIP":
+            self.histn += token.code
+        if token.kind == "OP":
+            self.histo.append(token)
+        logging.debug(f"history: {self.hist}")
+
     def parse(self):
         ptk = None
         equal = False
         s = self.source
         space = False
+        last_exp = None
         for tk in tokenize(self.source):
             # logging.debug(f"token: {token}")
 
+            self.history(tk)
+
+            # if tk.txt == "^":
+            #     last_exp = tk
+
+            if self.histn.endswith(("^v", "^-v")):
+                raise ComputorErr("EXP_03", s, col=tk.col)
+
+            if self.hist.endswith("v++"):
+                raise ComputorErr("VAR_02", s, col=tk.col - 2)
+
+            if self.hist.endswith("++v"):
+                raise ComputorErr("VAR_02", s, col=tk.col)
+            
+            if self.hist.endswith("v--"):
+                raise ComputorErr("VAR_03", s, col=tk.col - 2)
+
+            if self.hist.endswith("--v"):
+                raise ComputorErr("VAR_03", s, col=tk.col)
+
+            if self.histn.endswith(("^n", "^-n")) and "." in tk.txt:
+                raise ComputorErr("EXP_04", s, col=tk.col + tk.txt.index("."))
+
+            if self.histn.endswith(("s*", "=*", "^*")):
+                raise ComputorErr("OPR_01", s, text=tk.txt, col=tk.col)
+
+            if self.histn.endswith(("+*", "-*", "**",)):
+                raise ComputorErr("MUL_01", s, col=tk.col)
+
+            if self.histn.endswith(("^=", "^e")):
+                raise ComputorErr("EXP_01", s, col=ptk.col)
+
+            if self.histn.endswith(("^-n^", "^n^")):
+                raise ComputorErr("EXP_05", s, col=tk.col)
+            
             if not ptk:
                 ptk = tk
                 continue
@@ -81,10 +132,10 @@ class Parser:
                     raise ComputorErr("EQL_01", s, col=tk.col)
                 equal = True
 
-            if tk.code in "*^+":
-                if ptk.code in "*^":
-                    t = f"'{ptk.txt}' and '{tk.txt}'"
-                    raise ComputorErr("OPR_04", s, text=t, col=ptk.col)
+            # if tk.code in "*^+":
+            #     if ptk.code in "*^":
+            #         t = f"'{ptk.txt}' and '{tk.txt}'"
+            #         raise ComputorErr("OPR_04", s, text=t, col=ptk.col)
 
             if tk.kind == "NB":
                 if ptk.kind == "NB":
@@ -105,9 +156,9 @@ class Parser:
                 if tk.kind not in ("NB", "VAR"):
                     raise ComputorErr("EXP_01", s, col=tk.col)
 
-            if ptk.kind == "OP":
-                if tk.kind in ("EQ", "END"):
-                    raise ComputorErr("OPR_02", s, text=ptk.txt, col=ptk.col)
+            # if ptk.kind == "OP":
+            #     if tk.kind in ("EQ", "END"):
+            #         raise ComputorErr("OPR_02", s, text=ptk.txt, col=ptk.col)
 
             # Un monôme est forcément délimité par 
             # START
@@ -116,8 +167,8 @@ class Parser:
             # + 
             # - (si prev != * ni ^)
             if tk.code in "s=e+" or (tk.code == "-" and ptk.code not in "*^"):
-                if tk.code == "+" and ptk.code in "s=":
-                    raise ComputorErr("SGN_04", s, text=tk.txt, col=tk.col)
+                # if tk.code == "+" and ptk.code in "s=":
+                #     raise ComputorErr("SGN_04", s, text=tk.txt, col=tk.col)
                 if tk.code == "END":
                     self.store_monomial()
                     continue

@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 import io
 import logging

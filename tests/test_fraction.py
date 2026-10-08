@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 # Arithmétique exacte et mise en forme des nombres, sans passer par une équation.
 

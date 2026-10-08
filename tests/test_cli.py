@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 # Programme vu de l'extérieur : arguments, stdin, codes de sortie, messages, couleurs.
 

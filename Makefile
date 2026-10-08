@@ -4,7 +4,7 @@ RUFF    := $(VENV)/bin/ruff
 SRC     := computor computorv1 tests
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run test provisoire lint format clean fclean re
+.PHONY: help venv run test provisoire fuzz lint format clean fclean re
 
 help:
 	@grep -E '^[a-z]+:' Makefile | cut -d: -f1 | tr '\n' ' '
@@ -37,6 +37,11 @@ test: venv
 # input tests only, mismatches only, while the parser is being written
 provisoire: venv
 	@$(PYTHON) tests/provisoire.py
+
+# every input up to 5 characters, then random ones, checked against tests/oracle.py;
+# `make fuzz N=1000 SEED=42` replays a given draw, the seed is printed on each run
+fuzz: venv
+	@$(PYTHON) tests/fuzz.py $(if $(N),--count $(N)) $(if $(SEED),--seed $(SEED))
 
 lint: venv
 	$(RUFF) check --no-cache $(SRC)

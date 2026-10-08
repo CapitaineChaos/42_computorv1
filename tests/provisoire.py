@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 # Provisoire, le temps d'écrire le parser : lance test_saisie.py seul et n'affiche que les
 # écarts, sans en-têtes unittest ni traceback. Pas de préfixe test_, unittest ne le voit pas.

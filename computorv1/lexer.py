@@ -13,17 +13,17 @@ class Token(NamedTuple):
 def tokenize(code):
     token_specification = [
         # Integer or decimal number
-        ('NB',   r'[0-9]+(\.[0-9]*)?|\.[0-9]+'),  
+        ('NB',       r'[0-9]+(\.[0-9]*)?|\.[0-9]+'),  
         # Equal operator    
-        ('EQ',   r'='),     
+        ('EQ',       r'='),     
         # Identifiers                       
-        ('VAR',       r'[A-Za-z]'),  
+        ('VAR',      r'[A-Za-z]'),  
         # Arithmetic operators  
         ('OP',       r'[+\-*^]'),
         # Skip over spaces and tabs     
         ('SKIP',     r'[ \t]+'),
         # Any other character       
-        ('MISMATCH', r'.'),           
+        ('MISMATCH', r'[\s\S]'),           
     ]
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
 

@@ -5,9 +5,11 @@ from .display import BD_RED, RST, UND
 MESSAGES = {
     "CHR_01": "unexpected character '{text}' at column {col}",
 
-
     "EXP_01": "missing operand after exponent at column {col}",
     "EXP_02": "missing operand before exponent at column {col}",
+    "EXP_03": "illegal variable exponentiation at column {col}",
+    "EXP_04": "exponent must be an integer, at column {col}",
+    "EXP_05": "illegal exponent chaining at column {col}",
 
     "SGN_01": "missing operand before sign '{text}' at column {col}",
     "SGN_02": "missing operand after sign '{text}' at column {col}",
@@ -19,7 +21,8 @@ MESSAGES = {
     "OPR_03": "consecutive operators at column {col}",
     "OPR_04": "missing operand between operators {text} at column {col}",
     "OPR_05": "missing operator between operands {text} at column {col}",
-    
+    "OPR_06": "unexpected operator '{op2}' after '{op1}' at column {col}",
+
     "EQL_01": "missing left side of equation at column {col}",
     "EQL_02": "missing right side of equation at column {col}",
     "EQL_03": "multiple equal signs at column {col}",
@@ -29,7 +32,10 @@ MESSAGES = {
     "MUL_02": "missing operand after multiply at column {col}",
 
     "VAR_01": "multiple variable names found: '{text}' at column {col}",
+    "VAR_02": "illegal variable increment usage at column {col}",
+    "VAR_03": "illegal variable decrement usage at column {col}",
 
+    "LEN_01": "equation too long: {length} characters, {max} at most",
 }
 
 

@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 # Équations tirées des dépôts computorv1 d'étudiants 42 : README et scripts de test de
 # 456 dépôts trouvés sur GitHub, tous langages confondus.
@@ -473,11 +474,11 @@ REFUSED = [
     ("x(x+1) = 0", "CHR_01"),
     ("x+/2 = 1", "CHR_01"),
     ("x//2 = 1", "CHR_01"),
-    # OPR_01 : pas d'opérande avant '*'
+    # OPR_01 : '*' en début de côté ou derrière '^'
     ("* 1 = 0", "OPR_01"),
     ("* X^0 = 10", "OPR_01"),
     ("*x = 1", "OPR_01"),
-    ("- * X^0 = 10", "OPR_01"),
+    ("3x^*2 = 0", "OPR_01"),
     ("42 = * X^0", "OPR_01"),
     # OPR_02 : pas d'opérande après un opérateur autre que '^'
     ("1 * = 0", "OPR_02"),
@@ -488,14 +489,12 @@ REFUSED = [
     ("x * = 0", "OPR_02"),
     ("x + = 1", "OPR_02"),
     ("x* = 1", "OPR_02"),
-    # OPR_04 : '*', '^' ou '+' derrière '*' ou '^'
-    ("-2^^2 + 3x^2 + 2x = +6x^2 + 2 + 5x^1", "OPR_04"),
-    ("3x^*2 = 0", "OPR_04"),
+    # OPR_04 : '+' derrière '*' ou '^'
     ("3x^+-2 = 0", "OPR_04"),
     ("3x^+2 = 0", "OPR_04"),
-    ("4**2 = 2", "OPR_04"),
-    ("4*^2 = 2", "OPR_04"),
-    ("x^^2 = 0", "OPR_04"),
+    # MUL_01 : '*' derrière '*', '+' ou '-'
+    ("- * X^0 = 10", "MUL_01"),
+    ("4**2 = 2", "MUL_01"),
     # OPR_05 : deux nombres sans opérateur
     ("-2^2 + 2 3x = 0", "OPR_05"),
     ("4  5 4  5  0*X^1  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "OPR_05"),
@@ -505,25 +504,29 @@ REFUSED = [
     ("5 * X^0 + 4 *  X^1 - 9.3 * X^2 = 1 * X^", "EXP_01"),
     ("x^ = 1", "EXP_01"),
     # EXP_02 : pas de base avant '^'
+    ("-2^^2 + 3x^2 + 2x = +6x^2 + 2 + 5x^1", "EXP_02"),
     ("3x+^2 = 0", "EXP_02"),
     ("3x+^2^1 = 0", "EXP_02"),
     ("3x-^2 = 0", "EXP_02"),
+    ("4*^2 = 2", "EXP_02"),
     ("^ 1 = 0", "EXP_02"),
-    # EXP_03 : exposant non entier
-    ("1*X^1.5=1*X^1.5", "EXP_03"),
-    ("1*X^1.5=1*X^1.a5", "EXP_03"),
-    ("1*x^0.5=2*x^1", "EXP_03"),
-    ("1^8.5 = 0", "EXP_03"),
-    ("20*X^1.2  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "EXP_03"),
-    ("20*X^1.2  + 5*X^2 + 2*X^0 = 20*x^1.2 - 8*X^1", "EXP_03"),
-    ("2^1.2 = 2^1.2", "EXP_03"),
-    ("45450*X^1  + 5*X^2.2 + 2*X^0 = -20*x^0 - 8*X^1", "EXP_03"),
-    # EXP_05 : inconnue en exposant
-    ("1^X = 0", "EXP_05"),
-    # EXP_06 : exposants chaînés
-    ("-2^3^2 + 3x + 2x = 0", "EXP_06"),
-    ("-2^3^4 + 3.1x^2 = 0", "EXP_06"),
-    ("3x^2^4 = 0", "EXP_06"),
+    ("x^^2 = 0", "EXP_02"),
+    # EXP_03 : inconnue en exposant
+    ("1^X = 0", "EXP_03"),
+    # EXP_04 : exposant écrit en décimal, même entier
+    ("1*X^1.5=1*X^1.5", "EXP_04"),
+    ("1*X^1.5=1*X^1.a5", "EXP_04"),
+    ("1*x^0.5=2*x^1", "EXP_04"),
+    ("1^8.5 = 0", "EXP_04"),
+    ("20*X^1.2  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "EXP_04"),
+    ("20*X^1.2  + 5*X^2 + 2*X^0 = 20*x^1.2 - 8*X^1", "EXP_04"),
+    ("2^1.2 = 2^1.2", "EXP_04"),
+    ("45450*X^1  + 5*X^2.2 + 2*X^0 = -20*x^0 - 8*X^1", "EXP_04"),
+    ("45450*X^1  + 5*X^2. + 2*X^0 = -20*x^0 - 8*X^1", "EXP_04"),
+    # EXP_05 : exposants chaînés
+    ("-2^3^2 + 3x + 2x = 0", "EXP_05"),
+    ("-2^3^4 + 3.1x^2 = 0", "EXP_05"),
+    ("3x^2^4 = 0", "EXP_05"),
     # SGN_03 : '--' collé
     ("-- = 0", "SGN_03"),
     # SGN_04 : '+' unaire
@@ -558,7 +561,6 @@ REFUSED = [
     ("42*X^0 + 1x^2 = 42*X^0 + 1x^2", "VAR_01"),
     ("45450*X^1  + 5*X^-2 + 2*X^0 = -20*x^0 - 8*X^1", "VAR_01"),
     ("45450*X^1  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "VAR_01"),
-    ("45450*X^1  + 5*X^2. + 2*X^0 = -20*x^0 - 8*X^1", "VAR_01"),
     ("5*X + 4*x^1 - 9.3 * X^2 = 1 * X^0", "VAR_01"),
     ("6 * X^0 + 1 * X^2 = 5 * x^1", "VAR_01"),
     ("X^2 + 6 = 0x^0", "VAR_01"),

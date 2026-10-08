@@ -1,4 +1,5 @@
-# Author : CLAUDE OPUS 5.5
+# Author    : CLAUDE OPUS 5.5
+# Maintener : CLAUDE OPUS 5.5
 
 # Forme réduite, degré, discriminant et solutions, sur des saisies valides. Ce qui est
 # accepté ou refusé, et avec quel code, est dans test_saisie.py.
