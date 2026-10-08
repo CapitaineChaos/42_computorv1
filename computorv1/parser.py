@@ -1,7 +1,7 @@
 import logging
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
-from .errors import ComputorError
+from .errors import ComputorErr
 from .fraction import Fraction, from_decimal
 from .lexer import tokenize, Token
 from .reduce import reduce
@@ -16,110 +16,124 @@ def parse(source):
     # coefficients, degree = reduce(left, right)
     # return coefficients, degree, parser.name
 
-class Factor(NamedTuple):
-    sign: int
-    factor: list[Token]
 
 class Monomial(NamedTuple):
-    sign: int
-    terms: list[Factor]
+    terms: list[Any]
     degree: int
     coeff: int
 
 # À 42 on aime le parsing alors on parse à fond....
 class Parser:
     def __init__(self, source):
-        self.tokens = list(tokenize(source))
+        self.source = source
         self.position = 0
         self.var = None
-        self.monomials = []
+        self.monomials : list[Monomial] = []
+        self.current_monomial : Monomial | None = None
 
     @property
     def name(self):
         return self.var or "X"
 
-    def peek_next_token(self):
-        token = self.tokens[self.position]
-        return token
+    def to_monomial(self, token):
+        if not self.current_monomial:
+            self.current_monomial = Monomial([], 0, 1)
+        self.current_monomial.terms.append(token)
 
-    def get_next_token(self):
-        token = self.tokens[self.position]
-        self.position += 1
-        return token
+    def store_monomial(self):
+        if self.current_monomial:
+            self.monomials.append(self.current_monomial)
+            self.current_monomial = None
+
+    def new_monomial(self, sign):
+        self.store_monomial()
+        self.current_monomial = Monomial([], 0, sign)
 
     def parse(self):
-        side = 1
-        prv = self.get_next_token()
-        cur = prv
-        monomial = []
-        while cur.kind != "END" and prv.kind != "END":
-            cur = self.get_next_token()
-            ccol = cur.column
-            pcol = prv.column
-            if prv.kind == "VAR":
-                if self.var is None:
-                    self.var = prv.text
-                elif self.var != prv.text:
-                    raise ComputorError("VAR_01", text=prv.text, col=pcol)
+        ptk = None
+        equal = False
+        s = self.source
+        space = False
+        for tk in tokenize(self.source):
+            # logging.debug(f"token: {token}")
 
-            if cur.kind == "END" and prv.kind == "EQ":
-                raise ComputorError("EQL_03", col=ccol + 1)
-            
-            if prv.kind == "NB" and cur.kind == "NB":
-                raise ComputorError("NBR_01", col=ccol - 1)
-  
-            if cur.text == "+" and not prv.kind in ("NB", "VAR"):
-                raise ComputorError("SGN_02", col=ccol + 1)
-            
-            # rien après '*' ou '^'
-            if prv.text == "*":
-                if cur.kind != "NB" and cur.kind != "VAR" and cur.text != "-":
-                    raise ComputorError("MUL_01", col=pcol + 1)
-
-            if prv.text == "^":
-                if cur.kind != "NB" and cur.kind != "VAR" and cur.text != "-":
-                    raise ComputorError("EXP_01", col=pcol + 1)
-
-            # rien avant '*' ou '^'
-            if cur.text == "*" and prv.kind not in ("NB", "VAR"):
-                raise ComputorError("MUL_02", col=ccol + 1)
-
-            if cur.text == "^" and prv.kind not in ("NB", "VAR"):
-                raise ComputorError("EXP_02", col=ccol + 1)
-
-            if prv.kind == "OP_D" and cur.kind == "OP_D" and not cur.prevsp:
-                if prv.text != "+" or cur.text != "-":
-                    raise ComputorError("SGN_01", col=ccol + 1)
-
-            if prv.kind == "OP_D" and not cur.kind in ("NB", "VAR"):
-                raise ComputorError("SGN_03", col=ccol) 
-
-            if prv.kind == "START":
-                prv = cur
+            if not ptk:
+                ptk = tk
                 continue
 
-            if prv.kind == "EQ":
-                if side != 1:
-                    raise ComputorError("EQL_01", col=ccol)
-                if prv.pos == 1:
-                    raise ComputorError("EQL_02", col=pcol)
-                side = -1
+            if tk.kind == "VAR":
+                if self.var is None:
+                    self.var = tk.txt
+                elif self.var != tk.txt:
+                    raise ComputorErr("VAR_01", s, text=tk.txt, col=tk.col)
+                
+            if tk.kind == "SKIP":
+                space = True
+                continue
 
-            if (cur.kind == "END" or cur.kind == "EQ"
-                or (cur.kind == "OP_D" and prv.kind != "OP_B")):
-                logging.debug(f"prv 1 : {prv}")
-                monomial.append(prv)
-                monomial.append(side)
-                self.monomials.append(monomial)
-                logging.debug(f"monomial: {monomial}")
-                monomial = []
-            elif prv.kind != "EQ":
-                logging.debug(f"prv 2 : {prv}")
-                monomial.append(prv)
+            if tk.kind == "MISMATCH":
+                raise ComputorErr("CHR_01", s, text=tk.txt, col=tk.col)
 
-            prv = cur
+            if tk.kind == "EQ":
+                if equal:
+                    raise ComputorErr("EQL_03", s, col=tk.col)
+                if ptk.kind == "START":
+                    raise ComputorErr("EQL_01", s, col=tk.col)
+                equal = True
 
-        if side == 1:
-            raise ComputorError("EQL_04")
+            if tk.code in "*^+":
+                if ptk.code in "*^":
+                    t = f"'{ptk.txt}' and '{tk.txt}'"
+                    raise ComputorErr("OPR_04", s, text=t, col=ptk.col)
+
+            if tk.kind == "NB":
+                if ptk.kind == "NB":
+                    t = f"'{ptk.txt}' and '{tk.txt}'"
+                    raise ComputorErr("OPR_05", s, text=t, col=ptk.col + 1)
+                
+            if tk.kind == "END":
+                if ptk.kind == "EQ":
+                    raise ComputorErr("EQL_02", s, col=ptk.col)
+                if tk.kind == "EQ" and ptk.kind == "OP":
+                    raise ComputorErr("OPR_02", s, text=ptk.txt, col=ptk.col)
+
+            if tk.code == "^":
+                if ptk.kind not in ("NB", "VAR"):
+                    raise ComputorErr("EXP_02", s, col=tk.col)
+
+            if ptk.kind == "^":
+                if tk.kind not in ("NB", "VAR"):
+                    raise ComputorErr("EXP_01", s, col=tk.col)
+
+            if ptk.kind == "OP":
+                if tk.kind in ("EQ", "END"):
+                    raise ComputorErr("OPR_02", s, text=ptk.txt, col=ptk.col)
+
+            # Un monôme est forcément délimité par 
+            # START
+            # END
+            # EQ
+            # + 
+            # - (si prev != * ni ^)
+            if tk.code in "s=e+" or (tk.code == "-" and ptk.code not in "*^"):
+                if tk.code == "+" and ptk.code in "s=":
+                    raise ComputorErr("SGN_04", s, text=tk.txt, col=tk.col)
+                if tk.code == "END":
+                    self.store_monomial()
+                    continue
+                sign = -1 if equal else 1
+                sign = sign * (-1 if tk.code == "-" else 1)
+                self.new_monomial(sign)
+            else:
+                self.to_monomial(tk)
+
+            ptk = tk
+            space = False
+
+        if not equal:
+            raise ComputorErr("EQL_04", s)
         
-        
+        for m in self.monomials:
+            logging.debug(f"monomial: {m}")
+
+   

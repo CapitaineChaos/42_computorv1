@@ -3,10 +3,13 @@ import sys
 
 from .format import fmt
 
+UND = "\033[4m"
+
 YELLOW = "\033[33m"
 GREEN = "\033[32m"
 CYAN = "\033[36m"
-RESET = "\033[0m"
+BD_RED = "\033[1;31m"
+RST = "\033[0m"
 
 COLORS = [
     (re.compile(r"[+-]"), YELLOW),
@@ -21,7 +24,7 @@ def colorize(text):
     if not sys.stdout.isatty():
         return text
     for pattern, color in COLORS:
-        text = pattern.sub(color + r"\g<0>" + RESET, text)
+        text = pattern.sub(color + r"\g<0>" + RST, text)
     return text
 
 

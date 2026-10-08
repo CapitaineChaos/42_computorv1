@@ -2,7 +2,7 @@ import os
 import sys
 
 from .builder import build_eq
-from .errors import ComputorError
+from .errors import ComputorErr
 from .parser import parse
 
 STEPS_FLAGS = ("-s", "--steps")
@@ -61,7 +61,7 @@ def answer(source, show_steps):
         # eq = build_eq(coeffs, degree, name)
         # lines = eq.lines(show_steps)
         parse(source)
-    except (ComputorError, ValueError, ZeroDivisionError) as error:
+    except (ComputorErr, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False
     except (OverflowError, MemoryError):

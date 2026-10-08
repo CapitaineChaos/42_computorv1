@@ -12,7 +12,7 @@
 # Il accepte le `-` unaire partout où un opérande est attendu : `3 * -x`, `2^-3`, `x - - 2`.
 #
 # Écarts à bc :
-#   - parenthèses et division refusées (LXR_01)
+#   - parenthèses et division refusées (CHR_01)
 #   - multiplication implicite acceptée : `3x`, `x3`, `3 x`, `xx`
 #   - exposants chaînés refusés : `2^3^2`, `x^2^3`
 #   - refusés parce qu'un polynôme l'exige : une seconde inconnue, la casse comptant
@@ -20,27 +20,31 @@
 #     ou contenant l'inconnue (`2^x`). Les exposants négatifs (`x^-1`) sont acceptés.
 #
 # Le code attendu est celui du premier défaut lu de gauche à droite : `x^1.5 + y` est un
-# EXP_03, pas un VAR_01. Là où un opérande est attendu, `+` donne SGN_02 ; `*`, `^`, `=` ou
-# la fin prennent le code de ce qui précède : MUL_01 après `*`, EXP_01 après `^`, SGN_03
-# après un signe, MUL_02, EXP_02 ou EQL_0x en début de côté.
+# EXP_03, pas un VAR_01. Là où un opérande est attendu :
+#   - `+` : OPR_04 après `*` ou `^`, SGN_04 ailleurs ;
+#   - `*` : OPR_04 après `*` ou `^`, OPR_01 ailleurs ;
+#   - `^` : OPR_04 après `*` ou `^`, EXP_02 ailleurs ;
+#   - `-` : SGN_03 collé derrière un `-`, accepté ailleurs ;
+#   - `=` ou la fin : EXP_01 après `^`, OPR_02 après un autre opérateur, EQL_0x après `=`
+#     ou en début de saisie.
 #
 # Codes marqués * : proposés, absents de errors.py.
-#   LXR_01    caractère inconnu
-#   NBR_01    deux nombres sans opérateur
-#   MUL_01    pas d'opérande après '*'
-#   MUL_02 *  pas d'opérande avant '*'
+#   CHR_01    caractère inconnu
+#   OPR_01    pas d'opérande avant '*'
+#   OPR_02    pas d'opérande après un opérateur autre que '^'
+#   OPR_04    '*', '^' ou '+' derrière '*' ou '^'
+#   OPR_05    deux nombres sans opérateur
 #   EXP_01    pas d'opérande après '^'
-#   EXP_02 *  pas de base avant '^'
+#   EXP_02    pas de base avant '^'
 #   EXP_03 *  exposant non entier
 #   EXP_05 *  inconnue en exposant
 #   EXP_06 *  exposants chaînés
-#   SGN_01    '--' collé
-#   SGN_02    pas d'opérande avant '+', donc '+' unaire
-#   SGN_03 *  pas d'opérande après un signe
+#   SGN_03    '--' collé
+#   SGN_04    '+' unaire
 #   VAR_01    seconde inconnue
-#   EQL_01    second '='
-#   EQL_02    côté gauche vide
-#   EQL_03    côté droit vide
+#   EQL_01    côté gauche vide
+#   EQL_02    côté droit vide
+#   EQL_03    second '='
 #   EQL_04    pas de '='
 
 import io
@@ -52,7 +56,7 @@ from os.path import abspath, dirname
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import tests.common  # noqa: E402, F401
-from computorv1.errors import ComputorError  # noqa: E402
+from computorv1.errors import ComputorErr  # noqa: E402
 from computorv1.parser import parse  # noqa: E402
 from tests.corpus import EQUATIONS, IMPLICIT, REFUSED, UNSOLVED  # noqa: E402
 
@@ -67,7 +71,7 @@ def verdict(source):
     try:
         with redirect_stdout(io.StringIO()):
             parse(source)
-    except ComputorError as error:
+    except ComputorErr as error:
         return error.code
     except Exception as error:
         return f"plantage {type(error).__name__}"
@@ -175,10 +179,10 @@ class Accepted(Input):
 
 
 class Refused(Input):
-    def test_LXR_01(self):
+    def test_CHR_01(self):
         """Caractère inconnu, parenthèses comprises."""
         self.refused(
-            "LXR_01",
+            "CHR_01",
             [
                 "x % 2 = 0",
                 "(x + 1) = 0",
@@ -191,25 +195,42 @@ class Refused(Input):
             ],
         )
 
-    def test_NBR_01(self):
-        """Deux nombres sans opérateur."""
-        self.refused("NBR_01", ["2 3 = x", "X^1 0 = 1", "2..5 = x", "1.2.3 = x"])
-
-    def test_MUL_01(self):
-        """Pas d'opérande après '*'."""
-        self.refused("MUL_01", ["x * = 0", "3 * * x = 1", "4**2 = x", "x = 1 *", "4*^2 = x"])
-
-    def test_MUL_02(self):
+    def test_OPR_01(self):
         """Pas d'opérande avant '*'."""
-        self.refused("MUL_02", ["* x = 1", "*x = 1", "x = * 2"])
+        self.refused("OPR_01", ["* x = 1", "*x = 1", "x = * 2", "x - * 2 = 0"])
+
+    def test_OPR_02(self):
+        """Pas d'opérande après un opérateur autre que '^'."""
+        self.refused(
+            "OPR_02", ["x * = 0", "x = 1 *", "x + = 0", "x - = 0", "- = 1", "x = 1 -"]
+        )
+
+    def test_OPR_04(self):
+        """'*', '^' ou '+' derrière '*' ou '^'."""
+        self.refused(
+            "OPR_04",
+            [
+                "3 * * x = 1",
+                "4**2 = x",
+                "4*^2 = x",
+                "x^^2 = 0",
+                "x^*2 = 0",
+                "3 * +x = 1",
+                "x^+2 = 1",
+            ],
+        )
+
+    def test_OPR_05(self):
+        """Deux nombres sans opérateur."""
+        self.refused("OPR_05", ["2 3 = x", "X^1 0 = 1", "2..5 = x", "1.2.3 = x"])
 
     def test_EXP_01(self):
         """Pas d'opérande après '^'."""
-        self.refused("EXP_01", ["x^ = 1", "1 ^ = 0", "x = 2^", "x^^2 = 0", "x^*2 = 0"])
+        self.refused("EXP_01", ["x^ = 1", "1 ^ = 0", "x = 2^"])
 
     def test_EXP_02(self):
         """Pas de base avant '^'."""
-        self.refused("EXP_02", ["^2 = x", "^ 1 = 0", "x = ^2"])
+        self.refused("EXP_02", ["^2 = x", "^ 1 = 0", "x = ^2", "x +^2 = 0"])
 
     def test_EXP_03(self):
         """Exposant non entier, bc le tronque avec un avertissement."""
@@ -223,30 +244,14 @@ class Refused(Input):
         """Exposants chaînés."""
         self.refused("EXP_06", ["x^2^3 = 0", "2^3^2 = x", "9^9^9 = x", "0.5^9^9^9^9 = x"])
 
-    def test_SGN_01(self):
-        """'--' collé, que bc lit comme un décrément."""
-        self.refused("SGN_01", ["--x = 1", "-- = 0", "x --1 = 0", "x-- = 1", "2^--1 = x"])
-
-    def test_SGN_02(self):
-        """Pas d'opérande avant '+', donc '+' unaire."""
-        self.refused(
-            "SGN_02",
-            [
-                "+ 1 = 0",
-                "+x = 1",
-                "x = +1",
-                "1 + +x = 0",
-                "1 -+ x = 0",
-                "+- 1 = x",
-                "3 * +x = 1",
-                "x^+2 = 1",
-            ],
-        )
-
     def test_SGN_03(self):
-        """Pas d'opérande après un signe."""
+        """'--' collé, que bc lit comme un décrément."""
+        self.refused("SGN_03", ["--x = 1", "-- = 0", "x --1 = 0", "x-- = 1", "2^--1 = x"])
+
+    def test_SGN_04(self):
+        """'+' unaire."""
         self.refused(
-            "SGN_03", ["x + = 0", "x - = 0", "- = 1", "x = 1 -", "x - * 2 = 0", "x +^2 = 0"]
+            "SGN_04", ["+ 1 = 0", "+x = 1", "x = +1", "1 + +x = 0", "1 -+ x = 0", "+- 1 = x"]
         )
 
     def test_VAR_01(self):
@@ -254,16 +259,16 @@ class Refused(Input):
         self.refused("VAR_01", ["x + y = 0", "x^2 = X", "x * y = 1", "a * X^0 + b * X^1 = 0"])
 
     def test_EQL_01(self):
-        """Second '='."""
-        self.refused("EQL_01", ["x = 1 = 2", "x == 1", "x = = 1"])
+        """Côté gauche vide."""
+        self.refused("EQL_01", ["= x", "= 1 * X^0"])
 
     def test_EQL_02(self):
-        """Côté gauche vide."""
-        self.refused("EQL_02", ["= x", "= 1 * X^0"])
+        """Côté droit vide."""
+        self.refused("EQL_02", ["x =", "x =   "])
 
     def test_EQL_03(self):
-        """Côté droit vide."""
-        self.refused("EQL_03", ["x =", "x =   "])
+        """Second '='."""
+        self.refused("EQL_03", ["x = 1 = 2", "x == 1", "x = = 1"])
 
     def test_EQL_04(self):
         """Pas de '=', ou rien du tout."""
