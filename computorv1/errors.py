@@ -10,6 +10,7 @@ MESSAGES = {
     "EXP_03": "illegal variable exponentiation at column {col}",
     "EXP_04": "exponent must be an integer, at column {col}",
     "EXP_05": "illegal exponent chaining at column {col}",
+    "EXP_06": "division by 0 at column {col}",
 
     "SGN_01": "missing operand before sign '{text}' at column {col}",
     "SGN_02": "missing operand after sign '{text}' at column {col}",

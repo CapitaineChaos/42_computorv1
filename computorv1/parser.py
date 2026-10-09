@@ -35,8 +35,10 @@ class Parser:
         self.monomials : list[Monomial] = []
         self.current_monomial : Monomial | None = None
         self.hist = ""
-        self.histn = ""
-        self.histo = []
+        self.histsp = ""
+        self.histop = []
+        self.histnb = []
+        
 
     @property
     def name(self):
@@ -59,9 +61,12 @@ class Parser:
     def history(self, token):
         self.hist += token.code
         if token.kind != "SKIP":
-            self.histn += token.code
+            self.histsp += token.code
         if token.kind == "OP":
-            self.histo.append(token)
+            self.histop.append(token)
+        if token.kind == "NB":
+            self.histnb.append(token)
+
         logging.debug(f"history: {self.hist}")
 
     def parse(self):
@@ -78,35 +83,38 @@ class Parser:
             # if tk.txt == "^":
             #     last_exp = tk
 
-            if self.histn.endswith(("^v", "^-v")):
+            if self.histsp.endswith(("^v", "^-v")):
                 raise ComputorErr("EXP_03", s, col=tk.col)
 
-            if self.hist.endswith("v++"):
+            if self.histsp.endswith(("n^-n")):
+                n1 = self.histnb[-2].txt
+                n2 = self.histnb[-1].txt
+                if n1.strip("0.") == "" and n2.strip("0") != "":
+                    raise ComputorErr("EXP_06", s, text=n2, col=tk.col)
+
+            if self.hist.endswith(("v++", "v--")):
                 raise ComputorErr("VAR_02", s, col=tk.col - 2)
 
-            if self.hist.endswith("++v"):
+            if self.hist.endswith(("++v", "--v")):
                 raise ComputorErr("VAR_02", s, col=tk.col)
             
-            if self.hist.endswith("v--"):
-                raise ComputorErr("VAR_03", s, col=tk.col - 2)
-
-            if self.hist.endswith("--v"):
-                raise ComputorErr("VAR_03", s, col=tk.col)
-
-            if self.histn.endswith(("^n", "^-n")) and "." in tk.txt:
+            if self.histsp.endswith(("^n", "^-n")) and "." in tk.txt:
                 raise ComputorErr("EXP_04", s, col=tk.col + tk.txt.index("."))
 
-            if self.histn.endswith(("s*", "=*", "^*")):
+            if self.histsp.endswith(("s*", "=*", "^*")):
                 raise ComputorErr("OPR_01", s, text=tk.txt, col=tk.col)
 
-            if self.histn.endswith(("+*", "-*", "**",)):
+            if self.histsp.endswith(("+*", "-*", "**",)):
                 raise ComputorErr("MUL_01", s, col=tk.col)
 
-            if self.histn.endswith(("^=", "^e")):
+            if self.histsp.endswith(("^=", "^e")):
                 raise ComputorErr("EXP_01", s, col=ptk.col)
 
-            if self.histn.endswith(("^-n^", "^n^")):
+            if self.histsp.endswith(("^-n^", "^n^")):
                 raise ComputorErr("EXP_05", s, col=tk.col)
+
+            if self.hist.endswith(("++", "--",)):
+                raise ComputorErr("EXP_03", s, col=tk.col)
             
             if not ptk:
                 ptk = tk
