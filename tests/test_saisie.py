@@ -28,17 +28,17 @@
 #   - `-` : SGN_03 collé derrière un `-`, accepté ailleurs ;
 #   - `++` ou `--` collé à l'inconnue, avant ou après : VAR_02 ou VAR_03, avant SGN_04
 #     ou SGN_03.
-#   - `=` ou la fin : EXP_01 après `^`, OPR_02 après un autre opérateur, EQL_0x après `=`
-#     ou en début de saisie.
+#   - `=` ou la fin : EXP_01 après `^` ou son `-`, OPR_02 après un autre opérateur, EQL_0x
+#     après `=` ou en début de saisie.
 #
 # Codes marqués * : proposés, absents de errors.py.
 #   CHR_01    caractère inconnu
 #   OPR_01    '*' en début de côté ou derrière '^'
-#   OPR_02    pas d'opérande après un opérateur autre que '^'
+#   OPR_02    pas d'opérande après un opérateur hors exposant
 #   OPR_04    '+' derrière '*' ou '^'
 #   MUL_01    '*' derrière '*', '+' ou '-'
 #   OPR_05    deux nombres sans opérateur
-#   EXP_01    pas d'opérande après '^'
+#   EXP_01    pas d'opérande après '^' ou '^-'
 #   EXP_02    pas de base avant '^'
 #   EXP_03    inconnue en exposant
 #   EXP_04    exposant non entier
@@ -265,8 +265,8 @@ class Refused(Input):
                 ("x = 1 -", "OPR_02"),
                 ("x = 1 *", "OPR_02"),
                 ("x = 2^", "EXP_01"),
-                ("x^- = 1", "OPR_02"),
-                ("x = 2^-", "OPR_02"),
+                ("x^- = 1", "EXP_01"),
+                ("x = 2^-", "EXP_01"),
                 ("x = 1 + = 2", "OPR_02"),
             ]
         )

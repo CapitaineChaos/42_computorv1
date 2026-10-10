@@ -76,10 +76,10 @@ def expected(source):
         elif text == "=":
             if previous == "start":
                 return "EQL_01"
+            if in_exponent:
+                return "EXP_01"
             if previous in "+-*":
                 return "OPR_02"
-            if previous == "^":
-                return "EXP_01"
             if equals:
                 return "EQL_03"
             equals = True
@@ -116,10 +116,10 @@ def expected(source):
         return "EQL_04"
     if previous == "=":
         return "EQL_02"
+    if in_exponent:
+        return "EXP_01"
     if previous in "+-*":
         return "OPR_02"
-    if previous == "^":
-        return "EXP_01"
     if not equals:
         return "EQL_04"
     return None

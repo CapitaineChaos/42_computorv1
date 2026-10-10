@@ -480,7 +480,7 @@ REFUSED = [
     ("*x = 1", "OPR_01"),
     ("3x^*2 = 0", "OPR_01"),
     ("42 = * X^0", "OPR_01"),
-    # OPR_02 : pas d'opérande après un opérateur autre que '^'
+    # OPR_02 : pas d'opérande après un opérateur hors exposant
     ("1 * = 0", "OPR_02"),
     ("1 + = 0", "OPR_02"),
     ("4 + = 1 * X^0", "OPR_02"),
@@ -498,7 +498,7 @@ REFUSED = [
     # OPR_05 : deux nombres sans opérateur
     ("-2^2 + 2 3x = 0", "OPR_05"),
     ("4  5 4  5  0*X^1  + 5*X^2 + 2*X^0 = -20*x^0 - 8*X^1", "OPR_05"),
-    # EXP_01 : pas d'opérande après '^'
+    # EXP_01 : pas d'opérande après '^' ou '^-'
     ("1 ^ = 0", "EXP_01"),
     ("42 * X^ = 10", "EXP_01"),
     ("5 * X^0 + 4 *  X^1 - 9.3 * X^2 = 1 * X^", "EXP_01"),

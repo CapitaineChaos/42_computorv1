@@ -92,11 +92,11 @@ class Parser:
                 if n1.strip("0.") == "" and n2.strip("0") != "":
                     raise ComputorErr("EXP_06", s, text=n2, col=tk.col)
 
-            if self.hist.endswith(("v++", "v--")):
+            if self.hist.endswith(("v++", "++v")):
                 raise ComputorErr("VAR_02", s, col=tk.col - 2)
 
-            if self.hist.endswith(("++v", "--v")):
-                raise ComputorErr("VAR_02", s, col=tk.col)
+            if self.hist.endswith(("v--", "--v")):
+                raise ComputorErr("VAR_03", s, col=tk.col)
             
             if self.histsp.endswith(("^n", "^-n")) and "." in tk.txt:
                 raise ComputorErr("EXP_04", s, col=tk.col + tk.txt.index("."))
@@ -107,14 +107,17 @@ class Parser:
             if self.histsp.endswith(("+*", "-*", "**",)):
                 raise ComputorErr("MUL_01", s, col=tk.col)
 
-            if self.histsp.endswith(("^=", "^e")):
+            if self.histsp.endswith(("^=", "^e", "^-=", "^-e")):
                 raise ComputorErr("EXP_01", s, col=ptk.col)
 
             if self.histsp.endswith(("^-n^", "^n^")):
                 raise ComputorErr("EXP_05", s, col=tk.col)
 
-            if self.hist.endswith(("++", "--",)):
-                raise ComputorErr("EXP_03", s, col=tk.col)
+            if self.hist.endswith(("++ ", "-- ", " ++ ", " -- ")):
+                raise ComputorErr("OPR_03", s, col=tk.col)
+
+            if self.histsp.endswith(("+=", "-=", "*=", "+e", "-e", "*e")):
+                raise ComputorErr("OPR_02", s, text=ptk.txt, col=ptk.col)
             
             if not ptk:
                 ptk = tk
