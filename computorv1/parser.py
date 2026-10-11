@@ -89,15 +89,28 @@ class Parser2:
     def __init__(self, source):
         self.source = source
         self.tkns = list(tokenize(source))[::-1]
-    
+        self.last = None
+        self.prev = None
+        self.space_flag = False
+
     def peek(self):
+        if self.tkns[-1].kind == "SKIP":
+            self.space_flag = True
+            self.tkns.pop()
         return self.tkns[-1] if self.tkns else None
 
     def next(self):
-        return self.tkns.pop() if self.tkns else None
+        self.space_flag = False
+        self.prev = self.last
+        if self.tkns[-1].kind == "SKIP":
+            self.space_flag = True
+            self.tkns.pop()
+        self.last = self.tkns.pop()
+        return self.last
 
-    def nextif(self, kind):
+    def nextif(self, kind, src=""):
         if self.peek() and self.peek().kind == kind:
+            logging.debug(f"skip: {src}")
             return self.next()
         return None
 
@@ -114,59 +127,85 @@ class Parser2:
 
         left = self.expr()
 
-        self.nextif("SKIP")
-
         if self.peek().kind != "EQ":
             raise ComputorErr("EQL_04", self.source)
 
-        self.next()  # On consomme le égal
+        self.next()
 
-        self.nextif("SKIP")
 
         if self.peek().kind == "END":
             raise ComputorErr("EQL_02", self.source)
         
         right = self.expr()
 
+        # En principe on atteint jamais cette erreur mais on sait jamais
         if self.peek().kind != "END":
             raise ComputorErr("EXR_01", self.source)
         
         return Equation(left, right)
-    
+
     def expr(self):
         left = self.term()
         while self.peek().txt in ("+", "-"):
+            logging.debug(f"expr: {self.peek().txt}")
             op = self.next()
             right = self.term()
             left = BinaryOp(left, op, right)
         return left
 
-    def power(self):
-        left = self.atom()
-        if self.peek().txt == "^":
-            self.next()
-            right = self.atom()
-            left = Power(left, right)
-        return left
-
+    # On crée un token op pour les cas 3x au lieu de 3*x
+    def implicit_mul_op(self):
+        last = self.last.kind == "NB" or self.last.kind == "VAR"
+        if last and self.peek().kind == "VAR":
+            return Token("OP", "*", self.peek().col, "*")
+        if self.peek().txt in ("*", "/"):
+            return self.next()
+        return None
+    
     def term(self):
         left = self.power()
-        while self.peek().txt in ("*", "/"):
-            op = self.next()
+        while op := self.implicit_mul_op():
+            logging.debug(f"term: {self.peek().txt}")
+            # op = self.next()
             right = self.power()
             left = BinaryOp(left, op, right)
         return left
 
+    def power(self):
+        left = self.unary()
+        if self.peek().txt == "^":
+            logging.debug(f"power: {self.peek().txt}")
+            self.next()
+            right = self.unary()
+            left = Power(left, right)
+        return left
+
+    def unary(self):
+        if self.peek().txt == "-":
+            logging.debug(f"unary: {self.peek().txt}")
+            self.next()
+            return Negate(self.unary())
+        if self.peek().txt == "+":
+            logging.debug(f"unary: {self.peek().txt}")
+            self.next()
+            return Neutral(self.unary())
+        
+        return self.atom()
+
     def atom(self):
+
+
         token = self.next()
-        if token.txt == "+":
-            return Neutral(self.atom())
-        if token.txt == "-":
-            return Negate(self.atom())
         if token.kind == "NB":
-            return Number(from_decimal(token.txt))
+            logging.debug(f"atom: {token.txt}")
+            atm = Number(from_decimal(token.txt))
+            return atm
         if token.kind == "VAR":
-            return Variable(token.txt)
+            logging.debug(f"atom: {token.txt}")
+            atm = Variable(token.txt)
+            return atm
+
+
     
 
 
@@ -186,241 +225,241 @@ class Parser2:
 
 
 
-class Monomial(NamedTuple):
-    terms: list[Any]
-    degree: int
-    coeff: int
+# class Monomial(NamedTuple):
+#     terms: list[Any]
+#     degree: int
+#     coeff: int
 
-# À 42 on aime le parsing alors on parse à fond....
-class Parser:
-    def __init__(self, source):
-        self.source = source
-        self.position = 0
-        self.var = None
-        self.monomials : list[Monomial] = []
-        self.current_monomial : Monomial | None = None
-        self.hist = ""
-        self.histsp = ""
-        self.histop = []
-        self.histnb = []
+# # À 42 on aime le parsing alors on parse à fond....
+# class Parser:
+#     def __init__(self, source):
+#         self.source = source
+#         self.position = 0
+#         self.var = None
+#         self.monomials : list[Monomial] = []
+#         self.current_monomial : Monomial | None = None
+#         self.hist = ""
+#         self.histsp = ""
+#         self.histop = []
+#         self.histnb = []
         
 
-    @property
-    def name(self):
-        return self.var or "X"
+#     @property
+#     def name(self):
+#         return self.var or "X"
 
-    def to_monomial(self, token):
-        if not self.current_monomial:
-            self.current_monomial = Monomial([], 0, 1)
-        self.current_monomial.terms.append(token)
+#     def to_monomial(self, token):
+#         if not self.current_monomial:
+#             self.current_monomial = Monomial([], 0, 1)
+#         self.current_monomial.terms.append(token)
 
-    def store_monomial(self):
-        if self.current_monomial:
-            self.monomials.append(self.current_monomial)
-            self.current_monomial = None
+#     def store_monomial(self):
+#         if self.current_monomial:
+#             self.monomials.append(self.current_monomial)
+#             self.current_monomial = None
 
-    def new_monomial(self, sign):
-        self.store_monomial()
-        self.current_monomial = Monomial([], 0, sign)
+#     def new_monomial(self, sign):
+#         self.store_monomial()
+#         self.current_monomial = Monomial([], 0, sign)
 
-    def history(self, token):
-        self.hist += token.code
-        if token.kind != "SKIP":
-            self.histsp += token.code
-        if token.kind == "OP":
-            self.histop.append(token)
-        if token.kind == "NB":
-            self.histnb.append(token)
+#     def history(self, token):
+#         self.hist += token.code
+#         if token.kind != "SKIP":
+#             self.histsp += token.code
+#         if token.kind == "OP":
+#             self.histop.append(token)
+#         if token.kind == "NB":
+#             self.histnb.append(token)
 
-        logging.debug(f"history: {self.hist}")
-        return self.hist, self.histsp, self.histop, self.histnb
+#         logging.debug(f"history: {self.hist}")
+#         return self.hist, self.histsp, self.histop, self.histnb
 
-    def parse(self):
-        equal = False
-        s = self.source
-        for tk in tokenize(self.source):
-            # logging.debug(f"token: {token}")
+#     def parse(self):
+#         equal = False
+#         s = self.source
+#         for tk in tokenize(self.source):
+#             # logging.debug(f"token: {token}")
 
             
-            hist, histsp, histop, histnb = self.history(tk)
-            # ----------------------------------------------------------------
-            # Orphelins
+#             hist, histsp, histop, histnb = self.history(tk)
+#             # ----------------------------------------------------------------
+#             # Orphelins
 
-            if histsp[-2:-1] in "+-*":
-                if histsp[-3:-2] in "s=" and histsp[-1] in "=e":
-                    raise ComputorErr("OPR_07", s, text=tk.txt, col=tk.col)
+#             if histsp[-2:-1] in "+-*":
+#                 if histsp[-3:-2] in "s=" and histsp[-1] in "=e":
+#                     raise ComputorErr("OPR_07", s, text=tk.txt, col=tk.col)
 
-            # ----------------------------------------------------------------
-            # Ambiguités inc/dec à lever avant les verfications inc dec
+#             # ----------------------------------------------------------------
+#             # Ambiguités inc/dec à lever avant les verfications inc dec
 
-            if hist[-4:-1] in ("v++", "v--") and hist[-1] in "nv":
-                raise ComputorErr("SEQ_01", s, text=hist[-4:-1], col=tk.col)
+#             if hist[-4:-1] in ("v++", "v--") and hist[-1] in "nv":
+#                 raise ComputorErr("SEQ_01", s, text=hist[-4:-1], col=tk.col)
 
-            if hist[-3:] in ("++v", "--v") and hist[-4:-3] in "nv":
-                raise ComputorErr("SEQ_01", s, text=hist[-3:], col=tk.col)
+#             if hist[-3:] in ("++v", "--v") and hist[-4:-3] in "nv":
+#                 raise ComputorErr("SEQ_01", s, text=hist[-3:], col=tk.col)
 
-            if hist[-3:] in ("--n", "n--", "n --") or histsp[-3:] in ("++n"):
-                raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
+#             if hist[-3:] in ("--n", "n--", "n --") or histsp[-3:] in ("++n"):
+#                 raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
             
-            # ----------------------------------------------------------------
-            # Incrémentation et décrémentation
+#             # ----------------------------------------------------------------
+#             # Incrémentation et décrémentation
 
-            if ((hist[-4:-1] == "v++" and hist[-1] not in "nv")
-                or (hist[-3:] == "++v")):
-                raise ComputorErr("VAR_02", s, col=tk.col - 2)
+#             if ((hist[-4:-1] == "v++" and hist[-1] not in "nv")
+#                 or (hist[-3:] == "++v")):
+#                 raise ComputorErr("VAR_02", s, col=tk.col - 2)
 
-            if ((hist[-4:-1] == "v--" and hist[-1] not in "nv")
-                or (hist[-3:] == "--v")):
-                raise ComputorErr("VAR_03", s, col=tk.col)
+#             if ((hist[-4:-1] == "v--" and hist[-1] not in "nv")
+#                 or (hist[-3:] == "--v")):
+#                 raise ComputorErr("VAR_03", s, col=tk.col)
 
-            # ----------------------------------------------------------------
-            # Bizarreries doubles op
+#             # ----------------------------------------------------------------
+#             # Bizarreries doubles op
 
-            if hist[-3:-1] in ("++", "--", "-+") and hist[-1] in "=ev^":
-                raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
+#             if hist[-3:-1] in ("++", "--", "-+") and hist[-1] in "=ev^":
+#                 raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
 
-            if hist[-3:] in ("n++", "n--"):
-                raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
+#             if hist[-3:] in ("n++", "n--"):
+#                 raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
 
-            if histsp.endswith(("n++n", "n-+n", "++v")):
-                raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
+#             if histsp.endswith(("n++n", "n-+n", "++v")):
+#                 raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
 
-            if histsp.endswith(("s+-", "-+", "=+-", "=-+")):
-                raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
+#             if histsp.endswith(("s+-", "-+", "=+-", "=-+")):
+#                 raise ComputorErr("SEQ_01", s, text=tk.txt, col=tk.col)
             
-            # ----------------------------------------------------------------
-            # Exponentiation
+#             # ----------------------------------------------------------------
+#             # Exponentiation
 
-            if histsp.endswith(("^v", "^-v", "^--v")):
-                raise ComputorErr("EXP_03", s, col=tk.col)
+#             if histsp.endswith(("^v", "^-v", "^--v")):
+#                 raise ComputorErr("EXP_03", s, col=tk.col)
 
-            if histsp.endswith(("^n", "^-n")) and "." in tk.txt:
-                raise ComputorErr("EXP_04", s, col=tk.col + tk.txt.index("."))
+#             if histsp.endswith(("^n", "^-n")) and "." in tk.txt:
+#                 raise ComputorErr("EXP_04", s, col=tk.col + tk.txt.index("."))
 
-            if histsp.endswith(("n^-n")):
-                n1 = histnb[-2].txt
-                n2 = histnb[-1].txt
-                if n1.strip("0.") == "" and n2.strip("0") != "":
-                    raise ComputorErr("EXP_06", s, text=n2, col=tk.col)
+#             if histsp.endswith(("n^-n")):
+#                 n1 = histnb[-2].txt
+#                 n2 = histnb[-1].txt
+#                 if n1.strip("0.") == "" and n2.strip("0") != "":
+#                     raise ComputorErr("EXP_06", s, text=n2, col=tk.col)
 
-            if histsp.endswith(("^=", "^e", "^-=", "^-e")):
-                n = histop[-1]
-                raise ComputorErr("EXP_01", s, col=n.col)
+#             if histsp.endswith(("^=", "^e", "^-=", "^-e")):
+#                 n = histop[-1]
+#                 raise ComputorErr("EXP_01", s, col=n.col)
 
-            if hist.endswith(("^ +", "^ *")):
-                raise ComputorErr("EXP_01", s, col=tk.col)
+#             if hist.endswith(("^ +", "^ *")):
+#                 raise ComputorErr("EXP_01", s, col=tk.col)
 
-            if hist.endswith(("^+", "^*")):
-                raise ComputorErr("EXP_09", s, col=tk.col)
+#             if hist.endswith(("^+", "^*")):
+#                 raise ComputorErr("EXP_09", s, col=tk.col)
 
-            if histsp.endswith(("^--n^", "^-n^", "^n^")):
-                raise ComputorErr("EXP_05", s, col=tk.col)
+#             if histsp.endswith(("^--n^", "^-n^", "^n^")):
+#                 raise ComputorErr("EXP_05", s, col=tk.col)
 
-            if histsp.endswith("^^"):
-                raise ComputorErr("EXP_07", s, col=tk.col)
+#             if histsp.endswith("^^"):
+#                 raise ComputorErr("EXP_07", s, col=tk.col)
 
-            if histsp.endswith(("s^", "=^")):
-                raise ComputorErr("EXP_02", s, col=tk.col - 1)
+#             if histsp.endswith(("s^", "=^")):
+#                 raise ComputorErr("EXP_02", s, col=tk.col - 1)
 
-            if histsp.endswith(("+^", "-^", "*^")):
-                raise ComputorErr("EXP_08", s, col=tk.col)
+#             if histsp.endswith(("+^", "-^", "*^")):
+#                 raise ComputorErr("EXP_08", s, col=tk.col)
 
-            if histsp.endswith(("v^--e", "v^--=", "n^--e", "n^--=")):
-                raise ComputorErr("SEQ_01", s, text=hist[-4:-1], col=tk.col)
+#             if histsp.endswith(("v^--e", "v^--=", "n^--e", "n^--=")):
+#                 raise ComputorErr("SEQ_01", s, text=hist[-4:-1], col=tk.col)
 
-            if histsp.endswith(("v^--n", "n^--n")):
-                if "." in histnb[-1].txt:
-                    raise ComputorErr("EXP_04", s, text=histnb[-1].txt, col=tk.col)
+#             if histsp.endswith(("v^--n", "n^--n")):
+#                 if "." in histnb[-1].txt:
+#                     raise ComputorErr("EXP_04", s, text=histnb[-1].txt, col=tk.col)
 
-            if histsp[-5:-1] in ("v^--", "n^--") and histsp[-1] in "-+*":
-                raise ComputorErr("SEQ_01", s, text=hist[-4:], col=tk.col)
+#             if histsp[-5:-1] in ("v^--", "n^--") and histsp[-1] in "-+*":
+#                 raise ComputorErr("SEQ_01", s, text=hist[-4:], col=tk.col)
 
-            # ----------------------------------------------------------------
-            # Séquences dopérateur invalides
+#             # ----------------------------------------------------------------
+#             # Séquences dopérateur invalides
 
-            if histsp.endswith(("*+", "+*", "-*", "**",)):
-                raise ComputorErr("SEQ_01", s, text=hist[-2:], col=tk.col)
+#             if histsp.endswith(("*+", "+*", "-*", "**",)):
+#                 raise ComputorErr("SEQ_01", s, text=hist[-2:], col=tk.col)
             
-            if hist.endswith(("+ +", "*--", "+--")):
-                raise ComputorErr("SEQ_01", s, text=hist[-2:], col=tk.col)
+#             if hist.endswith(("+ +", "*--", "+--")):
+#                 raise ComputorErr("SEQ_01", s, text=hist[-2:], col=tk.col)
 
-            # ----------------------------------------------------------------
+#             # ----------------------------------------------------------------
 
-            if histsp.endswith("nn"):
-                raise ComputorErr("OPR_05", s, text=tk.txt, col=tk.col)
+#             if histsp.endswith("nn"):
+#                 raise ComputorErr("OPR_05", s, text=tk.txt, col=tk.col)
 
-            if histsp.endswith(("s*", "=*")):
-                raise ComputorErr("OPR_01", s, text=tk.txt, col=tk.col)
+#             if histsp.endswith(("s*", "=*")):
+#                 raise ComputorErr("OPR_01", s, text=tk.txt, col=tk.col)
             
-            if histsp.endswith(("s+v", "=+v", "s+n", "=+n")):
-                raise ComputorErr("SGN_04", s, text=tk.txt, col=tk.col) 
+#             if histsp.endswith(("s+v", "=+v", "s+n", "=+n")):
+#                 raise ComputorErr("SGN_04", s, text=tk.txt, col=tk.col) 
 
 
-            # ----------------------------------------------------------------
-            # Opérateur consécutifs
+#             # ----------------------------------------------------------------
+#             # Opérateur consécutifs
 
-            if hist[-4:-3] in ("s", " ", "=", "^"):
-                if hist[-3:-1] in ("++", "--", "-+"):
-                    raise ComputorErr("SEQ_01", s, text=hist[-3:-1], col=tk.col)
+#             if hist[-4:-3] in ("s", " ", "=", "^"):
+#                 if hist[-3:-1] in ("++", "--", "-+"):
+#                     raise ComputorErr("SEQ_01", s, text=hist[-3:-1], col=tk.col)
 
-            # ----------------------------------------------------------------
-            # Orphelins priorité basse
+#             # ----------------------------------------------------------------
+#             # Orphelins priorité basse
 
-            if histsp.endswith(("+=", "-=", "*=", "+e", "-e", "*e")):
-                op = histop[-1]
-                raise ComputorErr("OPR_07", s, text=op.txt, col=op.col)
+#             if histsp.endswith(("+=", "-=", "*=", "+e", "-e", "*e")):
+#                 op = histop[-1]
+#                 raise ComputorErr("OPR_07", s, text=op.txt, col=op.col)
             
-            # ----------------------------------------------------------------
-            # Plusieurs noms de variable
+#             # ----------------------------------------------------------------
+#             # Plusieurs noms de variable
 
-            if hist.endswith("v"):
-                if self.var is None:
-                    self.var = tk.txt
-                elif self.var != tk.txt:
-                    raise ComputorErr("VAR_01", s, text=tk.txt, col=tk.col)
+#             if hist.endswith("v"):
+#                 if self.var is None:
+#                     self.var = tk.txt
+#                 elif self.var != tk.txt:
+#                     raise ComputorErr("VAR_01", s, text=tk.txt, col=tk.col)
                 
 
-            if tk.kind == "MISMATCH":
-                if tk.txt == ".":
-                    raise ComputorErr("CHR_02", s, col=tk.col)
-                raise ComputorErr("CHR_01", s, text=tk.txt, col=tk.col)
+#             if tk.kind == "MISMATCH":
+#                 if tk.txt == ".":
+#                     raise ComputorErr("CHR_02", s, col=tk.col)
+#                 raise ComputorErr("CHR_01", s, text=tk.txt, col=tk.col)
 
 
-            # ----------------------------------------------------------------
-            # Opérateur =
+#             # ----------------------------------------------------------------
+#             # Opérateur =
 
-            if hist.endswith("="):
-                if equal:
-                    raise ComputorErr("EQL_03", s, col=tk.col)
-                equal = True
+#             if hist.endswith("="):
+#                 if equal:
+#                     raise ComputorErr("EQL_03", s, col=tk.col)
+#                 equal = True
 
-            if histsp.endswith("s="):
-                raise ComputorErr("EQL_01", s, col=tk.col)
+#             if histsp.endswith("s="):
+#                 raise ComputorErr("EQL_01", s, col=tk.col)
 
-            if histsp.endswith("=e"):
-                raise ComputorErr("EQL_02", s, col=tk.col)
+#             if histsp.endswith("=e"):
+#                 raise ComputorErr("EQL_02", s, col=tk.col)
 
 
-            # Un monôme est forcément délimité par 
-            # START
-            # END
-            # EQ
-            # + 
-            # -
-            if histsp.endswith(("s", "=", "e", "+")) and not histsp.endswith(()):
-                if tk.code == "END":
-                    self.store_monomial()
-                    continue
-                sign = -1 if equal else 1
-                sign = sign * (-1 if tk.code == "-" else 1)
-                self.new_monomial(sign)
-            else:
-                self.to_monomial(tk)
+#             # Un monôme est forcément délimité par 
+#             # START
+#             # END
+#             # EQ
+#             # + 
+#             # -
+#             if histsp.endswith(("s", "=", "e", "+")) and not histsp.endswith(()):
+#                 if tk.code == "END":
+#                     self.store_monomial()
+#                     continue
+#                 sign = -1 if equal else 1
+#                 sign = sign * (-1 if tk.code == "-" else 1)
+#                 self.new_monomial(sign)
+#             else:
+#                 self.to_monomial(tk)
 
-        if not equal:
-            raise ComputorErr("EQL_04", s)
+#         if not equal:
+#             raise ComputorErr("EQL_04", s)
         
-        for m in self.monomials:
-            logging.debug(f"monomial: {m}")
+#         for m in self.monomials:
+#             logging.debug(f"monomial: {m}")
 
    
