@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/computorv1/**)",
+      "Write(/computorv1/**)",
+      "Edit(/computor)",
+      "Write(/computor)"
+    ]
+  }
+}

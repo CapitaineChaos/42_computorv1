@@ -8,43 +8,58 @@
 # une expression que bc accepte. bc refuse :
 #   - deux nombres côte à côte : `2 3`, `1.2.3`
 #   - le `+` unaire, partout : `+1`, `x = +1`, `1 - +x`, `x^+2`
-#   - `--` collé, qu'il lit comme un décrément : `--x`, `x --1` ; `- -x` passe
+#   - `--` hors variable, qu'il lit comme un décrément : `--1`, `1--1`, `1---x` ; `- -1` passe
 #   - un opérateur sans opérande : `x * = 1`, `^2 = x`
+#   - zéro à une puissance négative : `0^-1`, divide by zero
 # Il accepte le `-` unaire partout où un opérande est attendu : `3 * -x`, `2^-3`, `x - - 2`.
+#
+# Blancs significatifs seulement dans un nombre, dans et devant `++` ou `--`, entre `^` et
+# `+` ou `*`, et entre `++` ou `--` et l'opérande qui suit. `++` et `--` se découpent de
+# gauche à droite : `x---1` est `x-- - 1`.
 #
 # Écarts à bc :
 #   - parenthèses et division refusées (CHR_01)
 #   - multiplication implicite acceptée : `3x`, `x3`, `3 x`, `xx`
-#   - exposants chaînés refusés : `2^3^2`, `x^2^3`
+#   - exposants chaînés refusés : `2^3^2`, `x^2^3` (`9^9^9` incalculable)
 #   - refusés parce qu'un polynôme l'exige : une seconde inconnue, la casse comptant
 #     (`x = X`), un exposant non entier (`x^1.5`, que bc tronque avec un avertissement)
 #     ou contenant l'inconnue (`2^x`). Les exposants négatifs (`x^-1`) sont acceptés.
 #
-# Le code attendu est celui du premier défaut lu de gauche à droite : `x^1.5 + y` est un
-# EXP_04, pas un VAR_01. Là où un opérande est attendu :
-#   - `+` : OPR_04 après `*` ou `^`, SGN_04 ailleurs ;
-#   - `*` : MUL_01 après `*`, `+` ou `-`, OPR_01 ailleurs ;
-#   - `^` : EXP_02 partout ;
-#   - `-` : SGN_03 collé derrière un `-`, accepté ailleurs ;
-#   - `++` ou `--` collé à l'inconnue, avant ou après : VAR_02 ou VAR_03, avant SGN_04
-#     ou SGN_03.
-#   - `=` ou la fin : EXP_01 après `^` ou son `-`, OPR_02 après un autre opérateur, EQL_0x
-#     après `=` ou en début de saisie.
+# Paire `++` ou `--` collée, toujours refusée : VAR_02 ou VAR_03 collée à l'inconnue d'un seul
+# côté (`x++`, `--x`, `x---1`), SEQ_01 sinon (`x--2`, `1++1`, `x = --1`, `1*--x`).
+# Autres séquences, SEQ_01 : `-+` même espacé, `+ +`, `*+`, `+*`, `-*`, `**`, `+` en tête
+# de membre suivi d'un signe (`+- 1`), `^- -` sans opérande, trois `-` ou plus après `^`.
+# `- -` espacé est accepté.
 #
-# Codes marqués * : proposés, absents de errors.py.
+# Le code attendu est celui du premier défaut lu de gauche à droite : `x^1.5 + y` est un
+# EXP_04, pas un VAR_01. Sur un même élément : `-+`, `^+`, `*+`, `+ +`, `*--` et `+--` avant la
+# paire (`-++x`, `x^++1`, `3*++x`), EXP_03 avant VAR_01, EXP_04 avant EXP_06.
+# Là où un opérande est attendu :
+#   - `+` : EXP_09 collé derrière `^`, EXP_01 séparé, SEQ_01 après `*`, `+` ou `-` ; en
+#     tête de membre, SGN_04 si un opérande suit, sinon le défaut de ce qui suit (`+^2` :
+#     EXP_08, `+.` : CHR_02) ;
+#   - `*` : EXP_09 collé derrière `^`, EXP_01 séparé, SEQ_01 après `*`, `+` ou `-`, OPR_01
+#     ailleurs ;
+#   - `^` : EXP_07 après `^`, EXP_08 après `+`, `-` ou `*`, EXP_02 en tête de membre ;
+#   - `=` ou la fin : EXP_01 après `^` ou `^-`, SEQ_01 après `^- -`, OPR_07 après un autre
+#     opérateur, EQL_0x après `=` ou en début de saisie, avant EQL_04 : `x +` est un OPR_07.
+#
 #   CHR_01    caractère inconnu
-#   OPR_01    '*' en début de côté ou derrière '^'
-#   OPR_02    pas d'opérande après un opérateur hors exposant
-#   OPR_04    '+' derrière '*' ou '^'
-#   MUL_01    '*' derrière '*', '+' ou '-'
+#   CHR_02    point sans chiffre
+#   OPR_01    '*' en début de côté
 #   OPR_05    deux nombres sans opérateur
+#   OPR_07    pas d'opérande après un opérateur hors exposant
+#   SEQ_01    séquence d'opérateurs invalide
 #   EXP_01    pas d'opérande après '^' ou '^-'
 #   EXP_02    pas de base avant '^'
 #   EXP_03    inconnue en exposant
 #   EXP_04    exposant non entier
 #   EXP_05    exposants chaînés
-#   SGN_03    '--' collé, hors inconnue
-#   SGN_04    '+' unaire
+#   EXP_06    zéro à une puissance négative
+#   EXP_07    '^' derrière '^'
+#   EXP_08    '^' derrière '+', '-' ou '*'
+#   EXP_09    '+' ou '*' collé derrière '^'
+#   SGN_04    '+' unaire en tête de membre, suivi d'un opérande
 #   VAR_01    seconde inconnue
 #   VAR_02    '++' collé à l'inconnue
 #   VAR_03    '--' collé à l'inconnue
@@ -55,12 +70,16 @@
 #   LEN_01    plus de MAX_LEN caractères, prioritaire sur tout autre défaut
 
 import io
+import re
 import sys
+import traceback
 import unittest
 from contextlib import redirect_stdout
-from os.path import abspath, dirname
+from itertools import product
+from os.path import abspath, dirname, join, relpath
 
-sys.path.insert(0, dirname(dirname(abspath(__file__))))
+ROOT = dirname(dirname(abspath(__file__)))
+sys.path.insert(0, ROOT)
 
 import tests.common  # noqa: E402, F401
 from computorv1.errors import ComputorErr  # noqa: E402
@@ -80,8 +99,17 @@ def verdict(source):
     except ComputorErr as error:
         return error.code
     except Exception as error:
-        return f"plantage {type(error).__name__}"
+        return crash(error)
     return None
+
+
+# Situé à la dernière ligne exécutée du paquet, pas dans la bibliothèque standard.
+def crash(error):
+    frames = traceback.extract_tb(error.__traceback__)
+    package = [frame for frame in frames if frame.filename.startswith(join(ROOT, "computorv1"))]
+    frame = (package or frames)[-1]
+    where = f"{relpath(frame.filename, ROOT)}:{frame.lineno}"
+    return f"plantage {type(error).__name__} {where} {error}"
 
 
 # Attendu « refusé, peu importe le code » : pour les bizarreries, seul compte le refus.
@@ -100,18 +128,62 @@ def shown(source):
     return text if len(text) <= 44 else f"{text[:32]}… ({len(source)} car.)"
 
 
+NUMBER_CHARS = "0123456789."
+
+
+def operand(char):
+    return char in NUMBER_CHARS or (char.isascii() and char.isalpha())
+
+
+# pieces[i] : (blancs, caractère). Le blanc testé est celui de pieces[i].
+def significant(pieces, i):
+    left, right = pieces[i - 1][1], pieces[i][1]
+    following = pieces[i + 1] if i + 1 < len(pieces) else ("", "")
+    pair = right + following[1] if following[0] == "" else ""
+    doubled_left = i >= 2 and pieces[i - 1][0] == "" and pieces[i - 2][1] == left
+    return (
+        (left in NUMBER_CHARS and right in NUMBER_CHARS)
+        or left + right in ("++", "--")
+        or (left == "^" and right in "+*")
+        or pair in ("++", "--")
+        or (operand(right) and left in "+-" and doubled_left)
+    )
+
+
+# Au-delà de MAX_LEN, LEN_01 masquerait le défaut testé.
+def respaced(source):
+    pieces = re.findall(r"([ \t]*)([^ \t])", source)
+    if not pieces or len(source) > MAX_LEN:
+        return []
+    compact, spaced = pieces[0][1], " " + pieces[0][1]
+    for i in range(1, len(pieces)):
+        blank, right = pieces[i]
+        kept = significant(pieces, i)
+        compact += (blank if kept else "") + right
+        spaced += (blank if kept else " ") + right
+    spaced += " "
+    return [form for form in sorted({compact, spaced} - {source}) if len(form) <= MAX_LEN]
+
+
 class Input(unittest.TestCase):
     # Passe toutes les saisies avant d'échouer, pour lister chaque écart avec le code obtenu
-    # et le code attendu.
+    # et le code attendu. Une variante n'est listée que si son verdict diffère de l'original.
     def check(self, cases):
-        wrong = [(source, verdict(source), expected) for source, expected in cases]
-        wrong = [case for case in wrong if not conforms(case[1], case[2])]
-        lines = [
-            f"  {shown(source):44} obtenu {got or 'accepté':20} attendu {expected or 'accepté'}"
-            for source, got, expected in wrong
-        ]
-        if wrong:
-            self.fail(f"{len(wrong)} saisies sur {len(cases)}\n" + "\n".join(lines))
+        seen, lines = set(), []
+        for source, expected in cases:
+            original = verdict(source)
+            for form in [source, *respaced(source)]:
+                if form in seen:
+                    continue
+                seen.add(form)
+                got = original if form == source else verdict(form)
+                if not conforms(got, expected) and (form == source or got != original):
+                    lines.append(
+                        f"  {shown(form):44} obtenu {got or 'accepté':20}"
+                        f" attendu {expected or 'accepté'}"
+                    )
+        if lines:
+            self.fail(f"{len(lines)} saisies sur {len(seen)}\n" + "\n".join(lines))
 
     def accepted(self, sources):
         self.check([(source, None) for source in sources])
@@ -199,6 +271,14 @@ class Accepted(Input):
         """Espaces et tabulations partout, ou nulle part."""
         self.accepted(["x=1", "  x  =  1  ", "\tx\t=\t1", "2*x^2-x=0"])
 
+    def test_zero_powers(self):
+        """Puissances de zéro."""
+        self.accepted(["0^- -1 = x", "0^-0 = x", "0^-00 = x", "0^0 = x", "0^2 = x", "0x^-1 = 1"])
+
+    def test_max_length(self):
+        """Exactement MAX_LEN caractères."""
+        self.accepted(["x = " + "1" * (MAX_LEN - 4)])
+
 
 # Une situation de rejet par groupe, essayée à chaque place où elle peut se produire : en tête
 # de membre, après '=', après chaque opérateur, devant '=' ou en fin de saisie.
@@ -217,9 +297,6 @@ class Refused(Input):
                 "x − 1 = 0",
                 "2 × x = 1",
                 "é = 1",
-                "2.5. = x",
-                "..5 = x",
-                ". = x",
                 "x� = 0",
                 "x=1\x00",
                 "x\n= 1",
@@ -229,6 +306,10 @@ class Refused(Input):
             ],
         )
 
+    def test_lone_point(self):
+        """Point sans chiffre."""
+        self.refused("CHR_02", ["2.5. = x", "..5 = x", ". = x"])
+
     def test_missing_left_operand(self):
         """Opérande gauche manquant : '*' ou '^' en tête de membre ou derrière un opérateur."""
         self.check(
@@ -236,18 +317,20 @@ class Refused(Input):
                 ("*x = 1", "OPR_01"),
                 ("* x = 1", "OPR_01"),
                 ("x = * 2", "OPR_01"),
-                ("x + * 2 = 0", "MUL_01"),
-                ("x - * 2 = 0", "MUL_01"),
-                ("3 * * x = 1", "MUL_01"),
-                ("4**2 = x", "MUL_01"),
-                ("x^*2 = 0", "OPR_01"),
+                ("x + * 2 = 0", "SEQ_01"),
+                ("x - * 2 = 0", "SEQ_01"),
+                ("3 * * x = 1", "SEQ_01"),
+                ("4**2 = x", "SEQ_01"),
+                ("x^*2 = 0", "EXP_09"),
+                ("x ^ *2 = 0", "EXP_01"),
                 ("^2 = x", "EXP_02"),
                 ("^ 1 = 0", "EXP_02"),
                 ("x = ^2", "EXP_02"),
-                ("x +^2 = 0", "EXP_02"),
-                ("3x-^2 = 0", "EXP_02"),
-                ("4*^2 = x", "EXP_02"),
-                ("x^^2 = 0", "EXP_02"),
+                ("x +^2 = 0", "EXP_08"),
+                ("3x-^2 = 0", "EXP_08"),
+                ("4*^2 = x", "EXP_08"),
+                ("x^-^2 = 0", "EXP_08"),
+                ("x^^2 = 0", "EXP_07"),
             ]
         )
 
@@ -255,19 +338,18 @@ class Refused(Input):
         """Opérande droit manquant : opérateur suivi de '=' ou de la fin de saisie."""
         self.check(
             [
-                ("x + = 0", "OPR_02"),
-                ("x - = 0", "OPR_02"),
-                ("- = 1", "OPR_02"),
-                ("x * = 0", "OPR_02"),
+                ("x + = 0", "OPR_07"),
+                ("x - = 0", "OPR_07"),
+                ("x * = 0", "OPR_07"),
                 ("x^ = 1", "EXP_01"),
                 ("1 ^ = 0", "EXP_01"),
-                ("x = 1 +", "OPR_02"),
-                ("x = 1 -", "OPR_02"),
-                ("x = 1 *", "OPR_02"),
+                ("x = 1 +", "OPR_07"),
+                ("x = 1 -", "OPR_07"),
+                ("x = 1 *", "OPR_07"),
                 ("x = 2^", "EXP_01"),
                 ("x^- = 1", "EXP_01"),
                 ("x = 2^-", "EXP_01"),
-                ("x = 1 + = 2", "OPR_02"),
+                ("x = 1 + = 2", "OPR_07"),
             ]
         )
 
@@ -277,43 +359,75 @@ class Refused(Input):
             [
                 ("+x = 1", "SGN_04"),
                 ("+ 1 = 0", "SGN_04"),
-                ("+- 1 = x", "SGN_04"),
+                ("+- 1 = x", "SEQ_01"),
                 ("x = +1", "SGN_04"),
-                ("1 + +x = 0", "SGN_04"),
-                ("x + + 1 = 0", "SGN_04"),
-                ("1++1 = x", "SGN_04"),
-                ("1 -+ x = 0", "SGN_04"),
-                ("x+-+1 = 0", "SGN_04"),
-                ("3 * +x = 1", "OPR_04"),
-                ("x^+2 = 1", "OPR_04"),
+                ("1 + +x = 0", "SEQ_01"),
+                ("x + + 1 = 0", "SEQ_01"),
+                ("x+-+1 = 0", "SEQ_01"),
+                ("1-+x = 0", "SEQ_01"),
+                ("3 * +x = 1", "SEQ_01"),
+                ("x^+2 = 1", "EXP_09"),
+                ("x^ +2 = 1", "EXP_01"),
             ]
         )
 
-    def test_double_minus(self):
-        """'--' accolé hors inconnue, que bc lit comme un décrément."""
+    def test_isolated_pair(self):
+        """Opérateurs consécutifs."""
         self.refused(
-            "SGN_03",
+            "SEQ_01",
             [
-                "-- = 0",
-                "x = --1",
-                "x --1 = 0",
-                "1--1 = x",
-                "3 * --1 = x",
+                "1*--x = 0",
+                "1+--x = 0",
+                "7+ ++x = 0",
+                "2++x = 0",
+                "x--2 = 0",
+                "x++2 = 0",
+                "x--x = 0",
+                "x++x = 0",
                 "2^--1 = x",
+                "3*--1 = x",
+                "x+--1 = 0",
+                "1++1 = x",
+                "1--1 = x",
+                "2--x = 0",
+                "x^2--1 = 0",
+                "1.--.5 = x",
+                "++ x = 1",
+                "1 ++ x = 0",
+                "x ++ = 1",
+                "+++x = 1",
+                "1 -+ x = 0",
+                "-+1 = x",
+                "-++x = 1",
+                "-- = 0",
+                "-- x = 1",
+                "---x = 0",
+                "x = --1",
+                "x =--1",
+                "x --1 = 0",
+                "x -- = 1",
+                "3 * --1 = x",
                 "x ^ -- 1 = 0",
+                "x = 1 - --1",
             ],
         )
 
     def test_increment_decrement(self):
-        """'++' ou '--' accolé à l'inconnue, que bc lit comme un incrément ou un décrément."""
+        """'++' ou '--' collé à l'inconnue."""
         self.check(
             [
                 ("x++ = 1", "VAR_02"),
                 ("++x = 1", "VAR_02"),
                 ("2 * x++ = 0", "VAR_02"),
+                ("x+++1 = 0", "VAR_02"),
                 ("x-- = 1", "VAR_03"),
                 ("--x = 1", "VAR_03"),
                 ("2 * x-- = 0", "VAR_03"),
+                ("x---1 = 0", "VAR_03"),
+                ("1---x = 0", "SEQ_01"),
+                ("- --x = 0", "VAR_03"),
+                ("2 --x = 0", "VAR_03"),
+                ("x++ 2 = 0", "VAR_02"),
             ]
         )
 
@@ -379,13 +493,130 @@ class Refused(Input):
         self.refused("VAR_01", ["x + y = 0", "x^2 = X", "x * y = 1", "a * X^0 + b * X^1 = 0"])
 
     def test_too_long(self):
-        """Saisie trop longue, refusée avant tout autre défaut ; MAX_LEN caractères passent."""
+        """Plus de MAX_LEN caractères, refusé avant tout autre défaut."""
         self.check(
             [
-                ("x = " + "1" * (MAX_LEN - 4), None),
                 ("x = " + "1" * (MAX_LEN - 3), "LEN_01"),
                 ("(" * (MAX_LEN + 1), "LEN_01"),
                 ("+" * (MAX_LEN + 1), "LEN_01"),
+            ]
+        )
+
+    def test_zero_negative_power(self):
+        """Zéro à une puissance négative."""
+        self.refused(
+            "EXP_06",
+            [
+                "0^-1 = x",
+                "x = 0^-2",
+                "0.0^-1 = x",
+                ".0^-1 = x",
+                "00^-01 = x",
+                "-0^-1 = x",
+                "x * 0^-1 = 1",
+            ],
+        )
+
+    def test_priority(self):
+        """Deux défauts : le premier lu l'emporte."""
+        self.check(
+            [
+                ("2 3 = x + y", "OPR_05"),
+                ("x + y = 2 3", "VAR_01"),
+                ("x^1.5 = y", "EXP_04"),
+                ("y = x^1.5", "VAR_01"),
+                ("x % 2 = y", "CHR_01"),
+                ("x + y = 2 % 3", "VAR_01"),
+                ("x = 1 = %", "EQL_03"),
+                ("x = 1 % = 2", "CHR_01"),
+                ("x++ = y", "VAR_02"),
+                ("x = y++", "VAR_01"),
+                ("x = ++y", "VAR_02"),
+                ("x = +y", "SGN_04"),
+                ("x^2^y = 1", "EXP_05"),
+                ("2^x^2 = 1", "EXP_03"),
+                ("0^-1^2 = x", "EXP_06"),
+                ("x + = = 1", "OPR_07"),
+                ("x = x^ = 1", "EXP_01"),
+                ("= = x", "EQL_01"),
+                ("x = =", "EQL_03"),
+            ]
+        )
+
+    def test_same_element(self):
+        """Deux défauts sur un même élément ou en fin de saisie."""
+        self.check(
+            [
+                ("x = 2^y", "EXP_03"),
+                ("x = 2^-y", "EXP_03"),
+                ("3 * ++x = 1", "SEQ_01"),
+                ("x^--x = 1", "VAR_03"),
+                ("0^-1.5 = x", "EXP_04"),
+                ("x +", "OPR_07"),
+                ("x *", "OPR_07"),
+                ("x^", "EXP_01"),
+                ("x^-", "EXP_01"),
+                ("x", "EQL_04"),
+            ]
+        )
+
+    def test_orphan(self):
+        """Opérateur seul entre le début ou '=' et '=' ou la fin."""
+        self.check(
+            [
+                ("+ = 1", "OPR_07"),
+                ("- = 1", "OPR_07"),
+                ("x = +", "OPR_07"),
+                ("x = -", "OPR_07"),
+                ("x = + = 1", "OPR_07"),
+                ("+", "OPR_07"),
+                ("-", "OPR_07"),
+                ("* = 1", "OPR_01"),
+                ("x = *", "OPR_01"),
+            ]
+        )
+
+    def test_fuzz(self):
+        """Écarts trouvés par le fuzz, réduits."""
+        self.check(
+            [
+                ("+*x = 1", "SEQ_01"),
+                ("+^2 = x", "EXP_08"),
+                ("+. = x", "CHR_02"),
+                ("x = 1*+", "SEQ_01"),
+                ("1*+*x = 0", "SEQ_01"),
+                ("1*+^2 = x", "SEQ_01"),
+                ("1*+. = x", "SEQ_01"),
+                ("x = 1*+-1", "SEQ_01"),
+                ("x = 1*+-+1", "SEQ_01"),
+                ("x*+-y = 0", "SEQ_01"),
+                ("++*x = 1", "SEQ_01"),
+                ("--*x = 1", "SEQ_01"),
+                ("++^2 = x", "SEQ_01"),
+                ("--^2 = x", "SEQ_01"),
+                ("1++ = x", "SEQ_01"),
+                ("1++. = x", "SEQ_01"),
+                ("x = 1+ +", "SEQ_01"),
+                ("+ +. = x", "SEQ_01"),
+                ("+ +-1 = x", "SEQ_01"),
+                ("x = 1 + + -1", "SEQ_01"),
+                ("x = 2+-- 7", "SEQ_01"),
+                ("x*-- 1 = 0", "SEQ_01"),
+                ("1+++x = 0", "SEQ_01"),
+                ("+ ++x = 1", "SEQ_01"),
+                ("x^- - = 1", "SEQ_01"),
+                ("x = x^- -", "SEQ_01"),
+                ("x^- - 2.5 = 1", "EXP_04"),
+                ("x^- -x = 1", "EXP_03"),
+                ("x^- -2^3 = 1", "EXP_05"),
+                ("x^- - -2 = 1", "SEQ_01"),
+                ("x^- --x = 1", "SEQ_01"),
+                ("x^- - -2.5 = 1", "SEQ_01"),
+                ("x^- - -x = 1", "SEQ_01"),
+                ("x^- - -2^3 = 1", "SEQ_01"),
+                ("0^- - -1 = x", "SEQ_01"),
+                ("x^- - - = 1", "SEQ_01"),
+                ("x = x^- - -", "SEQ_01"),
             ]
         )
 
@@ -531,12 +762,12 @@ class Oddities(Input):
         self.accepted(["xx = 1", "x x = 1", "X = 1", "z = 1", "2x3 = 1", "x2 = 1"])
 
     def test_consecutive_operators(self):
-        """Deux opérateurs de suite, collés ou séparés, pour chaque combinaison."""
+        """Deux opérateurs de suite."""
         cases = []
         for first in "+-*^":
             for second in "+-*^":
-                for gap in ("", " "):
-                    source = f"2 {first}{gap}{second} 1 = x"
+                for before, gap, after in product(("", " "), repeat=3):
+                    source = f"2{before}{first}{gap}{second}{after}1 = x"
                     # Seul le '-' unaire peut suivre un opérateur, sauf collé à un autre '-'.
                     valid = second == "-" and not (first == "-" and gap == "")
                     cases.append((source, None if valid else REJECTED))
@@ -637,22 +868,6 @@ class Oddities(Input):
                 "x = " + "+" * 10_000 + "1",
                 "x = 1" + " + " * 10_000,
             ],
-        )
-
-    def test_division_by_zero(self):
-        """Zéro à une puissance négative, que bc refuse : divide by zero."""
-        self.check(
-            [
-                ("0^-1 = x", REJECTED),
-                ("x = 0^-2", REJECTED),
-                ("0.0^-1 = x", REJECTED),
-                ("-0^-1 = x", REJECTED),
-                ("x * 0^-1 = 1", REJECTED),
-                ("0^- -1 = x", None),
-                ("0^-0 = x", None),
-                ("0^0 = x", None),
-                ("0^2 = x", None),
-            ]
         )
 
 

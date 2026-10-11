@@ -99,6 +99,8 @@ class Reduction(unittest.TestCase):
         self.assertEqual(reduced("-0.5 * X^0 + 3 * -X^1 = 0"), [-0.5, -3.0])
         self.assertEqual(reduced("3 * -x = 1"), [-1.0, -3.0])
         self.assertEqual(reduced("x - -2 = 0"), [2.0, 1.0])
+        self.assertEqual(reduced("-x^2 = 1"), [-1.0, 0.0, -1.0])
+        self.assertEqual(reduced("3 * -x^2 = 0"), [0.0, 0.0, -3.0])
 
     # Convention mathématique, pas celle de bc : -2^2 vaut -4, bc donne 4.
     def test_numeric_powers(self):

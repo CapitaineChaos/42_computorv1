@@ -18,9 +18,6 @@ $(RUFF): requirements.txt
 	$(VENV)/bin/pip install -q --disable-pip-version-check -r requirements.txt
 	@touch $@
 
-# `make run "3 * X = 0"`: make reads the quoted equation as a goal, or as an assignment
-# when the text before `=` has no space (`3x = 0` gives MAKEOVERRIDES `3x=0`); it is
-# glued back from either, and the extra goals do nothing
 ifeq (run,$(firstword $(MAKECMDGOALS)))
 ARG     := $(subst \_, ,$(firstword $(subst \ ,\_,$(MAKEOVERRIDES))))
 ARG     := $(or $(ARG),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
@@ -30,16 +27,17 @@ endif
 run: venv
 	@$(PYTHON) ./computor $(if $(ARG),"$(ARG)") || [ $$? -eq 130 ]
 
-# `make test T=saisie` runs tests/test_saisie.py alone, `make test` runs them all
 test: venv
 	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
 
-# input tests only, mismatches only, while the parser is being written
 provisoire: venv
 	@$(PYTHON) tests/provisoire.py
 
-# every input up to 5 characters, then random ones, checked against tests/oracle.py;
-# `make fuzz N=1000 SEED=42` replays a given draw, the seed is printed on each run
+ifeq (fuzz,$(firstword $(MAKECMDGOALS)))
+N       := $(or $(N),$(word 2,$(MAKECMDGOALS)))
+.DEFAULT: ; @:
+endif
+
 fuzz: venv
 	@$(PYTHON) tests/fuzz.py $(if $(N),--count $(N)) $(if $(SEED),--seed $(SEED))
 
