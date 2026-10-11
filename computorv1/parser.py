@@ -18,12 +18,172 @@ def parse(source):
     logging.basicConfig(level=logging.DEBUG, format="\033[36mPARSER:\033[0m \033[35m%(message)s\033[0m")
     if len(source) > MAX_LEN:
         raise ComputorErr("LEN_01", length=len(source), max=MAX_LEN)
-    parser = Parser(source)
+    parser = Parser2(source)
     # left, right = parser.eq_sides()
-    parser.parse()
+    show(parser.equation())
     print("-------------------------------------------------")
     # coefficients, degree = reduce(left, right)
     # return coefficients, degree, parser.name
+
+
+
+def show(node, prefix="", last=True):
+    print(prefix + ("└── " if last else "├── "), end="")
+
+    prefix += "    " if last else "│   "
+    
+    match node:
+        case Number(value):
+            print(value)
+        case BinaryOp(left, op, right):
+            print(op)
+            show(left, prefix, False)
+            show(right, prefix, True)
+        case Equation(left, right):
+            print("=")
+            show(left, prefix, False)
+            show(right, prefix, True)
+        case Variable(name):
+            print(name)
+        case Power(base, exponent):
+            print("^")
+            show(base, prefix, False)
+            show(exponent, prefix, True)
+        case Negate(value):
+            print("-")
+            show(value, prefix, True)
+        case Neutral(value):
+            print("+")
+            show(value, prefix, True)
+        case _:
+            print(repr(node))
+
+
+class Variable(NamedTuple):
+    name: str
+
+class Power(NamedTuple):
+    base: Any
+    exponent: Any
+
+class Equation(NamedTuple):
+    left: Any
+    right: Any
+
+class Number(NamedTuple):
+    value: Fraction
+
+class BinaryOp(NamedTuple):
+    left: Any
+    op: Token
+    right: Any
+
+class Negate(NamedTuple):
+    value: Any
+
+class Neutral(NamedTuple):
+    value: Any
+
+
+class Parser2:
+    def __init__(self, source):
+        self.source = source
+        self.tkns = list(tokenize(source))[::-1]
+    
+    def peek(self):
+        return self.tkns[-1] if self.tkns else None
+
+    def next(self):
+        return self.tkns.pop() if self.tkns else None
+
+    def nextif(self, kind):
+        if self.peek() and self.peek().kind == kind:
+            return self.next()
+        return None
+
+    def term(self):
+        pass
+
+    def equation(self):
+        token = self.next()
+
+        if token is None or not token.kind:
+            raise ComputorErr("EXR_01", self.source)
+        if token.kind != "START":
+            raise ComputorErr("EXR_02", self.source)
+
+        left = self.expr()
+
+        self.nextif("SKIP")
+
+        if self.peek().kind != "EQ":
+            raise ComputorErr("EQL_04", self.source)
+
+        self.next()  # On consomme le égal
+
+        self.nextif("SKIP")
+
+        if self.peek().kind == "END":
+            raise ComputorErr("EQL_02", self.source)
+        
+        right = self.expr()
+
+        if self.peek().kind != "END":
+            raise ComputorErr("EXR_01", self.source)
+        
+        return Equation(left, right)
+    
+    def expr(self):
+        left = self.term()
+        while self.peek().txt in ("+", "-"):
+            op = self.next()
+            right = self.term()
+            left = BinaryOp(left, op, right)
+        return left
+
+    def power(self):
+        left = self.atom()
+        if self.peek().txt == "^":
+            self.next()
+            right = self.atom()
+            left = Power(left, right)
+        return left
+
+    def term(self):
+        left = self.power()
+        while self.peek().txt in ("*", "/"):
+            op = self.next()
+            right = self.power()
+            left = BinaryOp(left, op, right)
+        return left
+
+    def atom(self):
+        token = self.next()
+        if token.txt == "+":
+            return Neutral(self.atom())
+        if token.txt == "-":
+            return Negate(self.atom())
+        if token.kind == "NB":
+            return Number(from_decimal(token.txt))
+        if token.kind == "VAR":
+            return Variable(token.txt)
+    
+
+
+
+# def evaluate(node):
+#     match node:
+#         case Num(value):
+#             return value
+#         case BinOp("+", left, right):
+#             return evaluate(left) + evaluate(right)
+#         case BinOp("*", left, right):
+#             return evaluate(left) * evaluate(right)
+
+
+
+
+
 
 
 class Monomial(NamedTuple):

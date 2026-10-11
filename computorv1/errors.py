@@ -48,6 +48,11 @@ MESSAGES = {
     "VAR_03": "illegal variable decrement usage at column {col}",
 
     "LEN_01": "equation too long: {length} characters, {max} at most",
+
+
+
+    "EXR_01": "Expression error",
+    "EXR_02": "Expression error",
 }
 
 

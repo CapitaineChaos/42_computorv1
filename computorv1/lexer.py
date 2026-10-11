@@ -4,6 +4,7 @@
 
 
 from typing import NamedTuple
+from .errors import ComputorErr
 import re
 
 
@@ -13,7 +14,7 @@ class Token(NamedTuple):
     col: int
     code: str
 
-    __repr__ = lambda self: f"Token({self.kind:<8}, {self.code}, {self.txt})"
+    __repr__ = lambda self: f"Token({self.kind}, {self.code}, {self.txt})"
 
 def tokenize(code):
     token_specification = [
@@ -46,7 +47,9 @@ def tokenize(code):
         elif kind == 'EQ' or kind == 'OP':
             tcode = value
         elif kind == 'MISMATCH':
-            tcode = 'm'
+            if value == ".":
+                raise ComputorErr("CHR_02", "", col=column)
+            raise ComputorErr("CHR_01", "", text=value, col=column)
         yield Token(kind, value, column, tcode)
     yield Token('END', '', len(code), 'e')
 
