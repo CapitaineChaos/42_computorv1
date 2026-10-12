@@ -6,12 +6,13 @@
 from enum import StrEnum
 
 class Kind(StrEnum):
-    START = "Start"
-    END = "End"
+    ST = "Start"
+    ND = "End"
     NB = "Number"
-    VAR = "Variable"
+    PW = "Power"
+    VR = "Variable"
     EQ = "Equal"
     OP = "Operator"
     SKIP = "Skip"
-    MIS = "Mismatch"
+    MT = "Mismatch"
     NONE = "None"

@@ -17,29 +17,27 @@ def tokenize(code):
         # Equal operator    
         (Kind.EQ,       r'='),     
         # Identifiers                       
-        (Kind.VAR,      r'[A-Za-z]'),  
+        (Kind.VR,      r'[A-Za-z]'),  
         # Arithmetic operators  
-        (Kind.OP,       r'[+\-*^]'),
+        (Kind.OP,       r'[+\-*]'),
+        # Power  
+        (Kind.PW,       r'\^'),
         # Skip spaces and tabs     
         (Kind.SKIP,     r'[ \t]+'),
         # Any other character       
-        (Kind.MIS,      r'[\s\S]'),           
+        (Kind.MT,      r'[\s\S]'),           
     ]
     tok_regex = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
 
     flag_space = False
-    yield Token(Kind.START, 's', 0, flag_space)
+    yield Token(Kind.ST, 's', 0, flag_space)
     for mo in re.finditer(tok_regex, code):
-        kind = mo.lastgroup
+        kind = mo.lastgroup or Kind.NONE
         value = mo.group()
         column = mo.start() + 1
         if kind == Kind.SKIP:
             flag_space = True
             continue
-        elif kind == Kind.MIS:
-            if value == ".":
-                raise ComputorErr("CHR_02", "", col=column)
-            raise ComputorErr("CHR_01", "", text=value, col=column)
         yield Token(kind, value, column, flag_space)
         flag_space = False
-    yield Token(Kind.END, 'e', len(code), flag_space)
+    yield Token(Kind.ND, 'e', len(code), flag_space)
