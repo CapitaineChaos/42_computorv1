@@ -4,6 +4,7 @@
 
 import os
 import sys
+import readline
 
 from .builder import build_eq
 from .errors import ComputorErr
@@ -53,10 +54,19 @@ def read_args(argv):
 
 # doc: https://docs.python.org/3/library/sys.html#sys.stdin
 def read_stdin():
-    for raw in sys.stdin.buffer:
-        line = raw.decode(errors="replace").strip()
-        if line:
-            yield line
+    if sys.stdin.isatty():
+        while True:
+            try:
+                line = input().strip()
+            except EOFError:
+                return
+            if line:
+                yield line
+    else:
+        for raw in sys.stdin.buffer:
+            line = raw.decode(errors="replace").strip()
+            if line:
+                yield line
 
 
 def answer(source, show_steps):

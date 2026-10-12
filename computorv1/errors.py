@@ -5,54 +5,108 @@
 import sys
 
 from .display import BD_RED, RST, UND
+from .kind import Kind
+
+
+class ErrorCodes(dict):
+    def __missing__(self, key):
+        a, b, c = key
+        if (a.kind, b.kind, c.txt) in self:
+            code, span = self[(a.kind, b.kind, c.txt)]
+            return code, *span(a, b, c)
+        if (a.kind, b.txt, c.txt) in self:
+            code, span = self[(a.kind, b.txt, c.txt)]
+            return code, *span(a, b, c)
+        if (b.txt, c.txt) in self:
+            code, span = self[(b.txt, c.txt)]
+            return code, *span(a, b, c)
+        return None
+
+
+ERROR_CODES = ErrorCodes({
+    (Kind.START, "+", "="): ("OPR_10", lambda a, b, c: (b.col, b.col)), 
+    (Kind.START, "-", "="): ("OPR_10", lambda a, b, c: (b.col, b.col)),
+    (Kind.START, "*", "="): ("OPR_10", lambda a, b, c: (b.col, b.col)),
+    (Kind.START, "^", "="): ("EXP_13", lambda a, b, c: (b.col, b.col)),
+
+    (Kind.EQ, Kind.OP, "e"): ("OPR_11", lambda a, b, c: (b.col, b.col)),
+    (Kind.EQ, "^", "e"): ("EXP_13", lambda a, b, c: (b.col, b.col)),
+
+    (Kind.NB, "^", "="): ("EXP_01", lambda a, b, c: (b.col, b.col)),
+    (Kind.VAR, "^", "="): ("EXP_01", lambda a, b, c: (b.col, b.col)),
+    (Kind.NB, Kind.OP, "="): ("VAL_01", lambda a, b, c: (b.col, c.col)),
+    (Kind.VAR, Kind.OP, "="): ("VAL_01", lambda a, b, c: (b.col, c.col)),
+    # # ("=", "^"): "EXP_02",
+    # ("^", "e"): "EXP_11",
+    # # ("s", "^"): "EXP_12",
+    # ("^", "^"): "EXP_07",
+    # ("+", "^"): "EXP_08",
+    # ("-", "^"): "EXP_08",
+    # ("*", "^"): "EXP_08",
+    # ("*", "*"): "OPR_08",
+})
+
 
 MESSAGES = {
-    "CHR_01": "unexpected character '{text}' at column {col}",
-    "CHR_02": "misplaced decimal point at column {col}",
+    "EXP_01": "value expected after '^' but found '{text}'",
+    "EXP_02": "value expected before '^' but found '{o1}'",
+    "EXP_03": "illegal variable exponentiation",
+    "EXP_04": "exponent must be an integer,",
+    # "EXP_05": "illegal exponent chaining",
+    # "EXP_06": "division by 0",
+    "EXP_07": "exponent cannot follow an exponent",
+    "EXP_08": "exponent cannot follow operator '{o2}'",
+    # "EXP_09": "exponent cannot be followed by an operator",
+    "EXP_10": "chaining exponents is not allowed",
+    "EXP_11": "missing value after exponent",
+    "EXP_12": "missing value before exponent",
+    "EXP_13": "orphan exponent",
 
-    "EXP_01": "missing operand after exponent at column {col}",
-    "EXP_02": "missing operand before exponent at column {col}",
-    "EXP_03": "illegal variable exponentiation at column {col}",
-    "EXP_04": "exponent must be an integer, at column {col}",
-    "EXP_05": "illegal exponent chaining at column {col}",
-    "EXP_06": "division by 0 at column {col}",
-    "EXP_07": "exponent cannot follow an exponent at column {col}",
-    "EXP_08": "exponent at column {col} cannot follow an operator",
-    "EXP_09": "exponent cannot be followed by an operator at column {col}",
+    # "SGN_01": "missing operand before sign '{text}'",
+    # "SGN_02": "missing operand after sign '{text}'",
+    # "SGN_03": "consecutive signs",
+    # "SGN_04": "monomial cannot start with sign '{text}'",
 
-    "SGN_01": "missing operand before sign '{text}' at column {col}",
-    "SGN_02": "missing operand after sign '{text}' at column {col}",
-    "SGN_03": "consecutive signs at column {col}",
-    "SGN_04": "monomial cannot start with sign '{text}' at column {col}",
+    # "OPR_01": "missing operand before operator '{text}'",
+    # "OPR_02": "missing operand after operator '{text}'",
+    "OPR_03": "consecutive operators",
+    # "OPR_04": "missing operand between operators {text}",
+    # "OPR_05": "missing operator between operands {text}",
+    # "OPR_06": "unexpected operator '{op2}' after '{op1}'",
+    "OPR_08": "consecutive operators '{o1}' and '{o2}'",
+    "OPR_10": "orphan operator '{o1}'",
+    "OPR_11": "orphan operator '{o1}'",
 
-    "OPR_01": "missing operand before operator '{text}' at column {col}",
-    "OPR_02": "missing operand after operator '{text}' at column {col}",
-    "OPR_03": "consecutive operators at column {col}",
-    "OPR_04": "missing operand between operators {text} at column {col}",
-    "OPR_05": "missing operator between operands {text} at column {col}",
-    "OPR_06": "unexpected operator '{op2}' after '{op1}' at column {col}",
-    "OPR_07": "orphan operator '{text}' at column {col}",
 
-    "EQL_01": "missing left side of equation at column {col}",
-    "EQL_02": "missing right side of equation at column {col}",
-    "EQL_03": "multiple equal signs at column {col}",
+
+    # "MUL_01": "missing operand before multiply",
+    # "MUL_02": "missing operand after multiply",
+
+    # "SEQ_01": "invalid operator sequence '{text}'",
+
+    # "VAR_01": "multiple variable names found: '{text}'",
+    # "VAR_02": "illegal variable increment usage",
+    # "VAR_03": "illegal variable decrement usage",
+
+
+
+
+    "CHR_01": "unexpected character '{text}'",
+    "CHR_02": "misplaced decimal point",
+
+    # "EXP_01": "missing number after exponent",
+    "EQL_01": "missing left side of equation",
+    "EQL_02": "missing right side of equation",
+    "EQL_03": "multiple equal signs",
     "EQL_04": "missing equal sign",
 
-    "MUL_01": "missing operand before multiply at column {col}",
-    "MUL_02": "missing operand after multiply at column {col}",
+    "ERR_01": "Expression error",
+    "ERR_02": "Expression error",
 
-    "SEQ_01": "invalid operator sequence '{text}' at column {col}",
+    "NBR_01": "missing operator between numbers {text}",
 
-    "VAR_01": "multiple variable names found: '{text}' at column {col}",
-    "VAR_02": "illegal variable increment usage at column {col}",
-    "VAR_03": "illegal variable decrement usage at column {col}",
-
+    "VAL_01": "value expected after operator '{o1}' but found '{o2}'",
     "LEN_01": "equation too long: {length} characters, {max} at most",
-
-
-
-    "EXR_01": "Expression error",
-    "EXR_02": "Expression error",
 }
 
 
@@ -62,15 +116,27 @@ class ComputorErr(Exception):
         self.code = code
         self.expr = expr
         self.col = values.get("col")
+        self.fcol = values.get("fcol", self.col)
+        self.tcol = values.get("tcol", self.col)
+        if self.col is None:
+            values["col"] = self.fcol
         self.message = MESSAGES[code].format(**values)
 
     def __str__(self):
-        msg = f"({self.code}) {self.message}"
+        msg = f"({self.code}) {self.tcol}: {self.message}"
+
         if self.expr is None:
             return msg
+        
         expr = self.expr
-        if self.col is not None and sys.stderr.isatty():
-            i = self.col - 1
-            char = expr[i] if i < len(expr) else " "
-            expr = expr[:i] + BD_RED + UND + char + RST + expr[i + 1:]
-        return msg + f"\nin: {expr}"
+        if self.fcol is not None and self.tcol is not None:
+            if sys.stderr.isatty():
+                i = self.fcol - 1
+                j = self.tcol
+                chars = expr[i:j] if i < len(expr) else " "
+                expr = expr[:i] + BD_RED + UND + chars + RST + expr[j:]
+            else:
+                expr = expr + "\n" + "    "
+                expr += " " * (self.fcol - 1) + "^" * (self.tcol - self.fcol + 1)
+
+        return msg + f"\nin: {expr}\n"
