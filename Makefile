@@ -30,8 +30,13 @@ run: venv
 test: venv
 	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
 
+ifeq (provisoire,$(firstword $(MAKECMDGOALS)))
+G       := $(or $(G),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
+.DEFAULT: ; @:
+endif
+
 provisoire: venv
-	@$(PYTHON) tests/provisoire.py
+	@$(PYTHON) tests/provisoire.py $(G)
 
 ifeq (fuzz,$(firstword $(MAKECMDGOALS)))
 N       := $(or $(N),$(word 2,$(MAKECMDGOALS)))

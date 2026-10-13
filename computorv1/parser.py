@@ -8,7 +8,7 @@ import sys
 
 from typing import Any, NamedTuple
 
-from .errors import ComputorErr, ERROR_CODES
+from .errors import ComputorErr
 from .fraction import Fraction, from_decimal
 from .lexer import tokenize
 from .token import Token
@@ -101,7 +101,7 @@ class Parser2:
         self.tkns = list(tokenize(source))[::-1]
         self.last = Token(Kind.NONE, '', -1, False)
         self.var = None
-        self.prev = None
+        self.prev = Token(Kind.NONE, '', -1, False)
 
     def peek(self) -> Token:
         return self.tkns[-1] if self.tkns else self.last
@@ -114,43 +114,42 @@ class Parser2:
     def equation(self):
         token = self.next()
 
-        if token is None or not token.kind:
-            raise ComputorErr("ERR_01", self.source)
-        if token.kind != Kind.ST:
-            raise ComputorErr("ERR_01", self.source)
+        # if token is None or not token.kind:
+        #     raise ComputorErr("ERR_01", self.source)
+        # if token.kind != Kind.ST:
+        #     raise ComputorErr("ERR_01", self.source)
 
-        if self.peek().kind == Kind.EQ:
-            raise ComputorErr("EQL_01", self.source)
+        # if self.peek().kind == Kind.EQ:
+        #     raise ComputorErr("EQL_01", self.source)
         
-        left = self.expr()
+        left = self.member(Kind.EQ)
 
-        if self.peek().kind != Kind.EQ:
-            raise ComputorErr("EQL_04", self.source)
+        # if self.peek().kind != Kind.EQ:
+        #     raise ComputorErr("EQL_04", self.source)
 
         self.next()
 
-        if self.peek().kind == Kind.ND:
-            raise ComputorErr("EQL_02", self.source)
+        # if self.peek().kind == Kind.ND:
+        #     raise ComputorErr("EQL_02", self.source)
         
-        right = self.expr()
+        right = self.member(Kind.ND)
 
-        if self.peek().kind == Kind.EQ:
-            fcol = tcol = self.peek().col
-            raise ComputorErr("EQL_03", self.source, fcol=fcol, tcol=tcol)
+        # if self.peek().kind == Kind.EQ:
+        #     fcol = tcol = self.peek().col
+        #     raise ComputorErr("EQL_03", self.source, fcol=fcol, tcol=tcol)
         
         # En principe on atteint jamais cette erreur mais on sait jamais
-        if self.peek().kind != Kind.ND:
-            raise ComputorErr("ERR_02", self.source)
+        # if self.peek().kind != Kind.ND:
+        #     raise ComputorErr("ERR_02", self.source)
         
         return Equation(left, right)
 
 
-    def expr(self):
+    def member(self, limit):
         left = self.term()
         while self.peek().txt in ("+", "-"):
             logging.debug(f"expr: {self.peek().txt}")
             op = self.next()
-            self.error("e", None, None, self.peek())
             right = self.term()
             left = BinaryOp(left, op, right)
         return left
@@ -158,70 +157,147 @@ class Parser2:
 
     def term(self):
         left = self.power()
+        self.pre_term()
         while self.peek().txt in ("*", "/"):
-            logging.debug(f"term: {self.peek().txt}")
             op = self.next()
-            self.error("t", None, None, self.peek())
+            self.if_term()
             right = self.power()
             left = BinaryOp(left, op, right)
+        self.post_term()
         return left
+
+    def if_term(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"if_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
+
+
+    def pre_term(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"pre_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        
+        if prev.kind == Kind.EQ:
+            if last.kind == Kind.OP:
+                # '... = *'
+                if next.kind == Kind.ND:
+                    raise ComputorErr("OPR_03")
+                # '... = * 1'
+                raise ComputorErr("OPR_05")
+
+    def post_term(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"post_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        if prev.kind == Kind.ST:
+            # '* 1 ...'
+            if last.kind in Kind.OP:
+                if next.kind in (Kind.NB, Kind.VR):
+                    raise ComputorErr("OPR_06")
+            # '* = ...'
+            if last.kind == Kind.EQ:
+                raise ComputorErr("OPR_03")
+            
+        # '2 ** 3 = ...'
+        if prev.kind == Kind.OP:
+            if last.kind == Kind.OP:
+                raise ComputorErr("OPR_01")
 
     def power(self):
+        self.pre_power()
         left = self.unary()
         if self.peek().txt == "^":
-            logging.debug(f"power: {self.peek().txt}")
             self.next()
-            self.error("p", None, self.last, self.peek())
-
+            self.if_power()
             right = self.unary()
-
-            if "." in str(self.last):
-                fcol = self.last.col
-                tcol = self.last.col + len(str(self.last)) - 1
-                raise ComputorErr("EXP_04", self.source, tcol=tcol, fcol=fcol)
-            
-            if self.last.kind == Kind.VR:
-                raise ComputorErr("EXP_03", self.source, col=self.last.col)
-
-            self.error("p", None, None, self.peek())
-            
             left = Power(left, right)
         return left
+    
+    def pre_power(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"pre_power: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        # '2 * ^ 1 = ...'
+        if last.kind == Kind.OP:
+            if next.kind == Kind.PW:
+                raise ComputorErr("EXP_04")
 
-
+    def if_power(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"if_power: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        if last.kind == Kind.PW:
+            # '... = *^ 2'
+            if prev.kind == Kind.OP:
+                raise ComputorErr("EXP_09")
+            match next.kind:
+                case Kind.OP | Kind.EQ:
+                    raise ComputorErr("EXP_01")
+                case Kind.PW:
+                    raise ComputorErr("EXP_07")
+                case Kind.VR:
+                    raise ComputorErr("EXP_02")
+                case Kind.ND:
+                    raise ComputorErr("EXP_03")
+                case Kind.NB:
+                    if "." in str(next):
+                        raise ComputorErr("EXP_06")
+        
     def unary(self):
+        self.pre_unary()
         if self.peek().txt == "-":
             logging.debug(f"unary: {self.peek().txt}")
             self.next()
-            self.error("u", None, None, self.peek())
+            # self.error("u", None, None, self.peek())
+            logging.debug(f"post_unary -: prev={self.prev.kind}, last={self.last.kind}, next={self.peek().kind}")
             return Negate(self.unary())
         if self.peek().txt == "+":
             logging.debug(f"unary: {self.peek().txt}")
             self.next()
-            self.error("u", None, None, self.peek())
+            # self.error("u", None, None, self.peek())
+            logging.debug(f"post_unary +: prev={self.prev.kind}, last={self.last.kind}, next={self.peek().kind}")
             return Neutral(self.unary())
-        
+        self.post_unary()
         return self.atom()
 
+    def pre_unary(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"pre_unary: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        if last.kind == Kind.OP:
+            # ' ... = +'
+            if prev.kind == Kind.EQ and next.kind == Kind.ND:
+                raise ComputorErr("OPR_03")
 
-    def error(self, type, tok_1, tok_2, tok_3):
-        # Opérandes manquants se détectent à partir d'ici
-        # Attention il faut utiliser [] au lieu de get pour le dict
-        ret = ERROR_CODES[(type, tok_1, tok_2, tok_3)]
 
-        if ret is None:
-            return
+    def post_unary(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"post_unary: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        if last.kind == Kind.OP:
+            # '+'
+            if prev.kind == Kind.ST and next.kind == Kind.ND:
+                raise ComputorErr("OPR_04")
+            # '+ = x'
+            if prev.kind == Kind.ST and next.kind == Kind.EQ:
+                raise ComputorErr("OPR_03")
+            # '+ ^2 = ...'
+            if next.kind == Kind.PW:
+                raise ComputorErr("EXP_04")
+             # '1 + = ...'
+            if next.kind == Kind.EQ:
+                raise ComputorErr("OPR_01")
+            # '... = 1 +'
+            if next.kind == Kind.ND:
+                raise ComputorErr("OPR_02")
 
-        code, (fcol, tcol) = ret
-
-        if code is not None:
-            args = dict()
-            args['o1'] = str(tok_2)
-            args['o2'] = str(tok_3)
-            args['text'] = str(tok_3)
-            args['fcol'] = fcol
-            args['tcol'] = tcol
-            raise ComputorErr(code, self.source, **args)
 
     def add_mul_token(self, tk):
         if tk.kind == Kind.VR:
@@ -230,40 +306,67 @@ class Parser2:
 
     def atom(self):
 
-        tkprev = self.prev
+        self.pre_atom()
+
         token = self.next()
 
-        if token.txt == ".":
-            self.error("d", None, None, token)
-        self.error("a", None, None, token)
+        node = None
 
         if token.kind == Kind.NB:
             logging.debug(f"atom: {token.txt}")
-            self.error("a", None, token, self.peek())
-            atm = Number(from_decimal(token.txt))
+            node = Number(from_decimal(token.txt))
             self.add_mul_token(self.peek())
-            return atm
         
-        if token.kind == Kind.VR:
+        elif token.kind == Kind.VR:
             logging.debug(f"atom: {token.txt}")
-            if not self.var:
-                self.var = self.last.txt
-            elif self.var != self.last.txt:
-                self.error("v", None, self.last, token)
-            
-            self.error("a", None, token, self.peek())
-            atm = Variable(token.txt)
+            node = Variable(token.txt)
             self.add_mul_token(self.peek())
-            return atm
 
-        self.error("a", tkprev, self.prev, token)
-        self.error("a", self.prev, token, self.peek())
+        self.post_atom()
+        
+        return node
 
-        raise ComputorErr("UNK_00", col=token.col)
+    def pre_atom(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"pre_atom: prev={prev.kind}, last={last.kind}, next={next.kind}")
 
 
+    
+    def post_atom(self):
+        prev = self.prev
+        last = self.last
+        next = self.peek()
+        logging.debug(f"post_atom: prev={prev.kind}, last={last.kind}, next={next.kind}")
 
+        if prev.kind == Kind.ST:
+            if last.kind == Kind.OP:
+                # '*'
+                if next.kind == Kind.ND:
+                    raise ComputorErr("OPR_04")
+                # '* = ...'
+                if next.kind == Kind.EQ:
+                    raise ComputorErr("OPR_03")
+        # '^ = ...' 
+        if prev.kind == Kind.ST:
+            if last.kind == Kind.PW:
+                if next.kind == Kind.EQ:
+                    raise ComputorErr("EXP_05")
+                raise ComputorErr("EXP_04")
+        # '... = ^'
+        if prev.kind == Kind.EQ:
+            if last.kind == Kind.PW:
+                if next.kind == Kind.ND:
+                    raise ComputorErr("EXP_05")
+                raise ComputorErr("EXP_04")
 
+        # 'x^3^2 = ...'
+        if prev.kind == Kind.PW:
+            if last.kind in (Kind.NB, Kind.VR):
+                if next.kind == Kind.PW:
+                    raise ComputorErr("EXP_08")
+                
 # def evaluate(node):
 #     match node:
 #         case Num(value):
