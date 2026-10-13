@@ -13,51 +13,56 @@
 # Blancs significatifs seulement dans un nombre.
 #
 # Écarts à bc :
-#   - parenthèses et division refusées (CHR_01)
+#   - parenthèses et division refusées (INP_02)
 #   - signes `+` et `-` unaires acceptés partout où un opérande est attendu, seuls ou
 #     répétés, collés ou séparés : `+1`, `3 * +-x`, `1--1`, `x = ---1`. bc refuse le `+`
-#     unaire et lit `--` comme un décrément. Seule exception : derrière `^` (EXP_14).
+#     unaire et lit `--` comme un décrément. Seule exception : derrière `^` (POW_01).
 #   - multiplication implicite acceptée, le nombre devant l'inconnue : `3x`, `3 x`, `xx` ;
-#     un nombre derrière l'inconnue est refusé (`x3`, `2x3`, NBR_02)
+#     un nombre derrière l'inconnue est refusé (`x3`, `2x3`, OPR_07)
 #   - exposants chaînés refusés : `2^3^2`, `x^2^3` (`9^9^9` incalculable)
 #   - refusés parce qu'un polynôme l'exige : une seconde inconnue, la casse comptant
 #     (`x = X`), un exposant non entier (`x^1.5`, que bc tronque avec un avertissement)
-#     ou contenant l'inconnue (`2^x`), un exposant signé (`x^-1`, `x^+2`, EXP_14), ce qui
+#     ou contenant l'inconnue (`2^x`), un exposant signé (`x^-1`, `x^+2`, POW_01), ce qui
 #     rend zéro à une puissance négative impossible à écrire.
 #
 # Le code attendu est celui du premier défaut lu de gauche à droite : `x^1.5 + y` est un
-# EXP_04, pas un VAR_01, et `x^-1.5` un EXP_14. Sur un même élément : VAR_01 avant EXP_03.
+# POW_06, pas un CPT_03, et `x^-1.5` un POW_01. Sur un même élément : POW_02 avant CPT_03.
+# Un '*' ou un '^' en tête de saisie est jugé sur ce qui le suit : `*. = 1` est un INP_03, mais
+# `x = *.` un OPR_05.
 # Là où un opérande est attendu :
-#   - `*` : EXP_14 derrière `^`, OPR_01 ailleurs ;
-#   - `^` : EXP_07 après `^`, EXP_02 après `+`, `-`, `*` ou en tête de membre ;
-#   - `+` ou `-` : EXP_14 derrière `^`, accepté ailleurs ;
-#   - `=` ou la fin : EXP_01 après `^` ; VAL_01 devant `=` après un opérateur précédé d'un
-#     opérande ; OPR_02 dans les autres cas d'opérateur ; EQL_0x après `=` ou en début de
-#     saisie, avant EQL_04 : `x +` est un OPR_02.
+#   - `*` : POW_01 derrière `^`, OPR_06 en tête de saisie, OPR_05 derrière `=`, POW_09
+#     devant `^`, OPR_01 ailleurs ;
+#   - `^` : POW_07 après `^`, POW_04 après `+`, `-`, `*` ou en tête de membre ;
+#   - `+` ou `-` : POW_01 derrière `^`, accepté ailleurs ;
+#   - `=` : POW_01 après `^`, OPR_01 après un opérateur, EQL_01 en tête de saisie ;
+#   - la fin : POW_03 après `^`, OPR_02 après un opérateur, EQL_02 après `=`.
+# Signe seul dans un membre : OPR_03 ; `*` seul : OPR_06 ou OPR_05 selon le membre ; `^` seul :
+# POW_04. Opérateur seul dans toute la saisie : OPR_04.
 #
-#   CHR_01    caractère inconnu
-#   CHR_02    point sans chiffre
-#   OPR_01    '*' sans opérande devant : en tête de membre, derrière un signe ou un '*'
-#   OPR_02    pas d'opérande après un opérateur : en fin de saisie, ou après un signe
-#   VAL_01    opérateur suivi de '=', après un opérande
-#   OPR_10    opérateur seul à gauche de '='
-#   OPR_11    opérateur seul à droite de '='
-#   EXP_01    pas d'opérande après '^'
-#   EXP_02    pas de base avant '^' : en tête de membre ou derrière '+', '-' ou '*'
-#   EXP_03    inconnue en exposant
-#   EXP_04    exposant non entier
-#   EXP_07    '^' derrière '^'
-#   EXP_10    exposants chaînés
-#   EXP_14    '+', '-' ou '*' derrière '^'
-#   NBR_01    deux nombres sans opérateur
-#   NBR_02    nombre derrière l'inconnue
-#   VAR_01    seconde inconnue
+#   INP_02    caractère inconnu
+#   INP_03    point sans chiffre
+#   OPR_01    opérateur derrière un opérateur, ou suivi de '='
+#   OPR_02    opérateur en fin de saisie
+#   OPR_03    signe seul dans un membre
+#   OPR_04    opérateur seul dans la saisie
+#   OPR_05    '*' juste après '='
+#   OPR_06    '*' en tête de saisie
+#   OPR_07    deux nombres sans opérateur, nombre derrière l'inconnue, ou '**' après un opérande
+#   POW_01    autre chose qu'une valeur après '^' : '=', '+', '-' ou '*'
+#   POW_02    inconnue en exposant
+#   POW_03    rien après '^'
+#   POW_04    pas de base avant '^' : en tête de membre ou derrière '+', '-' ou '*'
+#   POW_06    exposant non entier
+#   POW_07    '^' derrière '^'
+#   POW_08    exposants chaînés
+#   POW_09    '*' en tête de membre devant '^'
+#   CPT_03    seconde inconnue
 #   EQL_01    côté gauche vide
 #   EQL_02    côté droit vide
 #   EQL_03    second '='
 #   EQL_04    pas de '='
-#   EMP_01    saisie vide ou blanche
-#   LEN_01    plus de MAX_LEN caractères, prioritaire sur tout autre défaut
+#   INP_01    saisie vide ou blanche
+#   CPT_02    plus de MAX_LEN caractères, prioritaire sur tout autre défaut
 
 import io
 import re
@@ -72,7 +77,7 @@ ROOT = dirname(dirname(abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 import tests.common  # noqa: E402, F401
-from computorv1.errors import ComputorErr  # noqa: E402
+from computorv1.errors import ComputorException  # noqa: E402
 from computorv1.parser import MAX_LEN, parse  # noqa: E402
 
 # unittest masque la pile des modules qui définissent __unittest : un échec n'affiche que
@@ -86,7 +91,7 @@ def verdict(source):
     try:
         with redirect_stdout(io.StringIO()):
             parse(source)
-    except ComputorErr as error:
+    except ComputorException as error:
         return error.code
     except Exception as error:
         return crash(error)
@@ -109,9 +114,7 @@ REJECTED = "refusé"
 
 # Codes pas encore tranchés : saisie → question. L'attendu provisoire reste celui de son
 # groupe ; make provisoire affiche la question sur la ligne et en fin de sortie.
-PENDING = {
-    "x = 2^y": "VAR_01 (seconde inconnue) ou EXP_02 (inconnue en exposant) ?",
-}
+PENDING = {}
 
 
 def conforms(got, expected):
@@ -135,7 +138,7 @@ def significant(pieces, i):
     return left in NUMBER_CHARS and right in NUMBER_CHARS
 
 
-# Au-delà de MAX_LEN, LEN_01 masquerait le défaut testé.
+# Au-delà de MAX_LEN, CPT_02 masquerait le défaut testé.
 def respaced(source):
     pieces = re.findall(r"([ \t]*)([^ \t])", source)
     if not pieces or len(source) > MAX_LEN:
@@ -211,21 +214,19 @@ class Equation(Input):
 
     def test_empty_input(self):
         """Saisie vide ou blanche."""
-        self.expect(("EMP_01", ["", "   ", "\t"]), (REJECTED, [" "]))
+        self.refused("INP_01", ["", "   ", "\t", " "])
 
     def test_empty_side(self):
         """Membre vide, à gauche ou à droite de '='."""
         self.expect(
-            ("EQL_01", ["= x", "= 1 * X^0", "= = x", "=. x"]),
-            ("EQL_02", ["x =", "x =   "]),
-            (REJECTED, ["=", "==", "= =", " = ", "x =\t"]),
+            ("EQL_01", ["= x", "= 1 * X^0", "= = x", "=. x", "=", "==", "= =", " = "]),
+            ("EQL_02", ["x =", "x =   ", "x =\t"]),
         )
 
     def test_several_equals(self):
         """Plusieurs '=', collés ou séparés."""
-        self.expect(
-            ("EQL_03", ["x = 1 = 2", "x == 1", "x = = 1", "x = 1 = %", "x = =", "x == ."]),
-            (REJECTED, ["x = 1 = "]),
+        self.refused(
+            "EQL_03", ["x = 1 = 2", "x == 1", "x = = 1", "x = 1 = %", "x = =", "x == .", "x = 1 = "]
         )
 
     def test_no_equals(self):
@@ -237,7 +238,7 @@ class Characters(Input):
     def test_invalid_character(self):
         """Caractère hors grammaire, retour à la ligne et sosies Unicode d'opérateurs compris."""
         self.refused(
-            "CHR_01",
+            "INP_02",
             [
                 "x % 2 = 0",
                 "(x + 1) = 0",
@@ -265,7 +266,7 @@ class Characters(Input):
     def test_lone_point(self):
         """Point sans chiffre, derrière des signes compris."""
         self.refused(
-            "CHR_02",
+            "INP_03",
             [
                 "2.5. = x",
                 "..5 = x",
@@ -429,7 +430,7 @@ class Juxtaposition(Input):
         """Deux nombres sans opérateur, collés ou séparés."""
         self.expect(
             (
-                "NBR_01",
+                "OPR_07",
                 ["2 3 = x", "X^1 0 = 1", "2..5 = x", "1.2.3 = x", "2 3 = x + y", ".1.1. = x"],
             ),
             (REJECTED, ["2\t3 = x", "x^2 3 = 1", "2.5.5 = x", "x = 1 2", "0.5 .5 = x"]),
@@ -438,7 +439,7 @@ class Juxtaposition(Input):
     def test_number_after_unknown(self):
         """Nombre derrière l'inconnue, collé ou séparé."""
         self.refused(
-            "NBR_02",
+            "OPR_07",
             ["x3 = 6", "X.5 = 1", "x2^3 = 1", "2x3 = 1", "x2 = 1", "x = 2x 3", "x.5. = 1"],
         )
 
@@ -471,7 +472,7 @@ class Unknown(Input):
         """Plusieurs inconnues, la casse comptant, lettres collées comprises."""
         self.expect(
             (
-                "VAR_01",
+                "CPT_03",
                 [
                     "x + y = 0",
                     "x^2 = X",
@@ -481,7 +482,6 @@ class Unknown(Input):
                     "y = x^1.5",
                     "x + y = 2 % 3",
                     "x = y++",
-                    "x = 2^y",
                     "xy. = 1",
                     "x*+-y = 0",
                 ],
@@ -538,7 +538,8 @@ class Operators(Input):
         )
 
     def test_missing_left_operand(self):
-        """'*' sans opérande devant : en tête de saisie, après '=', un signe ou un '*'."""
+        """'*' sans opérande devant : en tête de saisie, après '=', un signe ou un '*'.
+        Un caractère invalide derrière le '*' est signalé avant l'opérande manquant."""
         self.expect(
             (
                 "OPR_06",
@@ -548,24 +549,30 @@ class Operators(Input):
                     "**x = 1",
                     "*+x = 1",
                     "*-1 = x",
-                    "*(x) = 1",
-                    "*. = 1",
                 ],
             ),
-            ("OPR_05", ["x = * 2", "x = **2", "x = *-2"]),
+            ("INP_02", ["*(x) = 1"]),
+            ("INP_03", ["*. = 1"]),
+            ("OPR_05", ["x = * 2", "x = **2", "x = *-2", "x = *%", "x = *."]),
             (
                 "OPR_01",
                 [
                     "x + * 2 = 0",
                     "x - * 2 = 0",
-                    "3 * * x = 1",
-                    "4**2 = x",
                     "++*x = 1",
                     "+*x = 1",
                     "1*+*x = 0",
                     "--*x = 1",
+                    "+**x = 1",
+                    "1+**x = 1",
+                    "x = -**2",
+                    "x = 1 + * = 2",
+                    "+*^2 = x",
+                    "+*. = 1",
+                    "+*% = 1",
                 ],
             ),
+            ("OPR_07", ["3 * * x = 1", "4**2 = x"]),
         )
 
     def test_operator_before_equals(self):
@@ -599,7 +606,9 @@ class Operators(Input):
     def test_orphan(self):
         """Opérateur seul entre le début ou '=' et '=' ou la fin."""
         self.expect(
-            ("OPR_03", ["+ = 1", "- = 1", "* = 1", "+ = .", "x = +", "x = -", "x = *"]),
+            ("OPR_03", ["+ = 1", "- = 1", "+ = .", "x = +", "x = -"]),
+            ("OPR_06", ["* = 1"]),
+            ("OPR_05", ["x = *", "x = * = 1"]),
             ("OPR_01", ["x = + = 1"]),
             ("OPR_02", ["--"]),
             ("OPR_04", ["+", "-", "*"]),
@@ -611,7 +620,8 @@ class Operators(Input):
         for first, second in product("+-*", repeat=2):
             for before, gap, after in product(("", " "), repeat=3):
                 source = f"2{before}{first}{gap}{second}{after}1 = x"
-                cases.append((source, ACCEPTED if second in "+-" else "OPR_01"))
+                code = "OPR_07" if first == second == "*" else "OPR_01"
+                cases.append((source, ACCEPTED if second in "+-" else code))
         self.check(cases)
 
     def test_at_edges(self):
@@ -628,21 +638,21 @@ class Operators(Input):
         """Opérateurs d'autres langages : puissance, comparaison, affectation."""
         self.check(
             [
-                ("x ** 2 = 1", "OPR_01"),
-                ("x // 2 = 1", "CHR_01"),
+                ("x ** 2 = 1", "OPR_07"),
+                ("x // 2 = 1", "INP_02"),
                 ("x == 1", "EQL_03"),
-                ("x != 1", "CHR_01"),
-                ("x <= 1", "CHR_01"),
-                ("x >= 1", "CHR_01"),
-                ("x < 1", "CHR_01"),
-                ("x > 1", "CHR_01"),
-                ("x := 1", "CHR_01"),
+                ("x != 1", "INP_02"),
+                ("x <= 1", "INP_02"),
+                ("x >= 1", "INP_02"),
+                ("x < 1", "INP_02"),
+                ("x > 1", "INP_02"),
+                ("x := 1", "INP_02"),
                 ("x += 1", "OPR_01"),
                 ("x -= 1", "OPR_01"),
                 ("x *= 1", "OPR_01"),
-                ("x ^= 1", "EXP_01"),
-                ("x -> 1", "CHR_01"),
-                ("x => 1", "CHR_01"),
+                ("x ^= 1", "POW_01"),
+                ("x -> 1", "INP_02"),
+                ("x => 1", "INP_02"),
             ]
         )
 
@@ -700,15 +710,15 @@ class Exponent(Input):
     def test_missing_exponent(self):
         """Pas d'exposant après '^' : '=', '*' ou fin de saisie."""
         self.expect(
-            ("EXP_01", ["x^ = 1", "1 ^ = 0", "x = x^ = 1", "x^= .", "x^*2 = 0", "x ^ *2 = 0"]),
-            ("EXP_03", ["x = 2^", "x^"]),
+            ("POW_01", ["x^ = 1", "1 ^ = 0", "x = x^ = 1", "x^= .", "x^*2 = 0", "x ^ *2 = 0"]),
+            ("POW_03", ["x = 2^", "x^"]),
         )
 
     def test_missing_base(self):
         """Pas de base avant '^' : en tête de membre, derrière un opérateur ; '^' seul."""
         self.expect(
             (
-                "EXP_04",
+                "POW_04",
                 [
                     "^2 = x",
                     "^ 1 = 0",
@@ -722,16 +732,22 @@ class Exponent(Input):
                     "1*+^2 = x",
                     "++^2 = x",
                     "^",
+                    "^ = 1",
+                    "x = ^",
+                    "x = ^ = 1",
+                    "x = ^%",
+                    "x = ^.",
                 ],
             ),
-            ("EXP_05", ["^ = 1", "x = ^"]),
-            ("EXP_09", ["*^2 = x", "x = *^2"]),
+            ("POW_09", ["*^2 = x", "x = *^2"]),
+            ("INP_02", ["^% = 1"]),
+            ("INP_03", ["^. = 1"]),
         )
 
     def test_signed_exponent(self):
         """Exposant précédé de signes : refusé sur le signe, avant ce qui suit."""
         self.refused(
-            "EXP_01",
+            "POW_01",
             [
                 "x^-1 = 0",
                 "x^+2 = 1",
@@ -773,7 +789,7 @@ class Exponent(Input):
     def test_operator_after_caret(self):
         """Signes derrière '^' sans exposant ensuite."""
         self.refused(
-            "EXP_01",
+            "POW_01",
             [
                 "x^-^2 = 0",
                 "x^+^2 = 0",
@@ -793,9 +809,9 @@ class Exponent(Input):
     def test_chained(self):
         """'^' derrière '^' ou derrière un exposant."""
         self.expect(
-            ("EXP_07", ["x^^2 = 0", "x^^. = 1"]),
+            ("POW_07", ["x^^2 = 0", "x^^. = 1"]),
             (
-                "EXP_08",
+                "POW_08",
                 [
                     "x^2^3 = 0",
                     "x ^ 2 ^ 3 = 0",
@@ -812,7 +828,7 @@ class Exponent(Input):
     def test_non_integer_exponent(self):
         """Exposant écrit en décimal, même entier, que bc tronque avec un avertissement."""
         self.refused(
-            "EXP_06",
+            "POW_06",
             [
                 "x^1.5 = 0",
                 "2^0.5 = x",
@@ -829,8 +845,17 @@ class Exponent(Input):
     def test_unknown_in_exponent(self):
         """Inconnue en exposant."""
         self.refused(
-            "EXP_02",
-            ["2^x = 4", "x^x = 1", "1^X = 0", "2^x^2 = 1", "2^x3 = 1", "x^x) = 1", "2^x. = 1"],
+            "POW_02",
+            [
+                "2^x = 4",
+                "x^x = 1",
+                "1^X = 0",
+                "2^x^2 = 1",
+                "2^x3 = 1",
+                "x^x) = 1",
+                "2^x. = 1",
+                "x = 2^y",
+            ],
         )
 
     def test_beside_operator(self):
@@ -839,14 +864,14 @@ class Exponent(Input):
         for first, second in product("+-*^", repeat=2):
             if "^" not in (first, second):
                 continue
-            code = "EXP_07" if first == second else "EXP_01" if first == "^" else "EXP_04"
+            code = "POW_07" if first == second else "POW_01" if first == "^" else "POW_04"
             for before, gap, after in product(("", " "), repeat=3):
                 cases.append((f"2{before}{first}{gap}{second}{after}1 = x", code))
         cases += [
-            ("^ 1 = x", "EXP_04"),
-            ("x = ^ 1", "EXP_04"),
-            ("1 ^ = x", "EXP_01"),
-            ("x = 1 ^", "EXP_03"),
+            ("^ 1 = x", "POW_04"),
+            ("x = ^ 1", "POW_04"),
+            ("1 ^ = x", "POW_01"),
+            ("x = 1 ^", "POW_03"),
         ]
         self.check(cases)
 
@@ -854,33 +879,33 @@ class Exponent(Input):
         """Exposants : décimal, négatif, signé, inconnue, chaîné, vide, doublé."""
         self.check(
             [
-                ("x^1.5 = 1", "EXP_06"),
-                ("x^-1.5 = 1", "EXP_01"),
-                ("x^.5 = 1", "EXP_06"),
-                ("x^2. = 1", "EXP_06"),
-                ("x^-1 = 1", "EXP_01"),
-                ("x^+2 = 1", "EXP_01"),
-                ("x^--2 = 1", "EXP_01"),
-                ("x^x = 1", "EXP_02"),
-                ("2^x = 1", "EXP_02"),
-                ("x^-x = 1", "EXP_01"),
-                ("x^2^3 = 1", "EXP_08"),
-                ("x^ = 1", "EXP_01"),
-                ("x = x^", "EXP_03"),
-                ("x^ - = 1", "EXP_01"),
-                ("x^^2 = 1", "EXP_07"),
-                ("x^*2 = 1", "EXP_01"),
+                ("x^1.5 = 1", "POW_06"),
+                ("x^-1.5 = 1", "POW_01"),
+                ("x^.5 = 1", "POW_06"),
+                ("x^2. = 1", "POW_06"),
+                ("x^-1 = 1", "POW_01"),
+                ("x^+2 = 1", "POW_01"),
+                ("x^--2 = 1", "POW_01"),
+                ("x^x = 1", "POW_02"),
+                ("2^x = 1", "POW_02"),
+                ("x^-x = 1", "POW_01"),
+                ("x^2^3 = 1", "POW_08"),
+                ("x^ = 1", "POW_01"),
+                ("x = x^", "POW_03"),
+                ("x^ - = 1", "POW_01"),
+                ("x^^2 = 1", "POW_07"),
+                ("x^*2 = 1", "POW_01"),
             ]
         )
 
 
 class Length(Input):
     def test_max_length(self):
-        """MAX_LEN caractères au plus ; au-delà, LEN_01 avant tout autre défaut."""
+        """MAX_LEN caractères au plus ; au-delà, CPT_02 avant tout autre défaut."""
         self.expect(
             (ACCEPTED, ["x = " + "1" * (MAX_LEN - 4)]),
             (
-                "LEN_01",
+                "CPT_02",
                 [
                     "x = " + "1" * (MAX_LEN - 3),
                     "(" * (MAX_LEN + 1),

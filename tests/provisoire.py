@@ -9,8 +9,9 @@
 # Numéro : N pour un sujet entier, N.M pour un seul de ses groupes.
 #
 # Code attendu exigé tel quel : les attentes de test_saisie.py suivent la numérotation de
-# MESSAGES (errors.py). Un code attendu absent de MESSAGES est marqué « à créer ». REJECTED :
-# refus sous un code de MESSAGES hors UNK_ et ERR_ ; une ébauche « [ @@@ … ] » est un écart.
+# tables `messages` des classes d'erreur (errors.py). Un code attendu absent de ces tables est
+# marqué « à créer ». REJECTED : refus sous un code de ces tables hors UNK_ et ERR_ ; une
+# ébauche « [ @@@ … ] » est un écart.
 
 import re
 import sys
@@ -21,7 +22,18 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import tests.test_saisie as saisie  # noqa: E402
 from computorv1.display import BD_RED, CYAN, GREEN, RST  # noqa: E402
-from computorv1.errors import MESSAGES  # noqa: E402
+from computorv1.errors import ComputorException  # noqa: E402
+
+
+# Codes de toutes les classes d'erreur : chacune porte sa table dans `messages`.
+def all_messages(cls=ComputorException):
+    codes = dict(getattr(cls, "messages", {}))
+    for sub in cls.__subclasses__():
+        codes |= all_messages(sub)
+    return codes
+
+
+MESSAGES = all_messages()
 
 # KO : accepté au lieu de refusé ou l'inverse, plantage, ébauche. WRONG : refusé comme
 # attendu, mais sous un autre code ; compte comme écart.

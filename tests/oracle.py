@@ -5,9 +5,9 @@
 # indépendant du parser (il a son propre découpage). Le fuzz compare le parser à l'oracle.
 #
 # Lecture de gauche à droite, le premier défaut rencontré l'emporte. Quand plusieurs défauts
-# tombent sur le même élément, l'ordre est celui des contrôles ci-dessous : caractère invalide,
-# puis le défaut propre à l'élément, puis inconnue multiple ou second signe égal. Une seconde
-# inconnue passe avant l'inconnue en exposant.
+# tombent sur le même élément, l'ordre est celui des contrôles ci-dessous. L'inconnue en
+# exposant passe avant une seconde inconnue. Un '*' ou un '^' en tête de saisie est jugé sur
+# ce qui le suit : un caractère invalide derrière lui est signalé d'abord. Derrière '=', non.
 
 import re
 
@@ -25,15 +25,39 @@ ELEMENT = re.compile(
 OPERATORS = ("+", "-", "*")
 
 
-# Premier élément non blanc à partir de `at`, "end" en fin de saisie.
+# Premier élément non blanc à partir de `at` : (genre, texte), ("end", "") en fin de saisie.
 def following(source, at):
-    rest = source[at:].lstrip(" \t")
-    return rest[:1] or "end"
+    match = ELEMENT.match(source, len(source) - len(source[at:].lstrip(" \t")))
+    if match is None:
+        return "end", ""
+    return match.lastgroup, match.group()
+
+
+def invalid(text):
+    return "INP_03" if text == "." else "INP_02"
+
+
+# '*' en tête de membre (previous : "start" ou "=").
+def leading_star(previous, next_kind, next_text):
+    if next_kind == "invalid" and previous == "start":
+        return invalid(next_text)
+    if next_text == "^":
+        return "POW_09"
+    if next_kind == "end" and previous == "start":
+        return "OPR_04"
+    return "OPR_06" if previous == "start" else "OPR_05"
+
+
+# '^' en tête de membre (previous : "start" ou "="), seul compris.
+def leading_caret(previous, next_kind, next_text):
+    if next_kind == "invalid" and previous == "start":
+        return invalid(next_text)
+    return "POW_04"
 
 
 def expected(source):
     if len(source) > MAX_LEN:
-        return "LEN_01"
+        return "CPT_02"
     previous = "start"  # élément précédent, blancs ignorés : start, number, unknown ou le symbole
     before = "start"  # élément encore avant
     unknown = None
@@ -45,75 +69,68 @@ def expected(source):
         if kind == "blank":
             continue
         if kind == "invalid":
-            return "CHR_02" if text == "." else "CHR_01"
+            return invalid(text)
 
         in_exponent = previous == "^"
         exponent_operand = False
         if kind == "number":
-            if previous == "number":
-                return "NBR_01"
-            if previous == "unknown":
-                return "NBR_02"
+            if previous in ("number", "unknown"):
+                return "OPR_07"
             if in_exponent and "." in text:
-                return "EXP_04"
+                return "POW_06"
             exponent_operand = in_exponent
         elif kind == "unknown":
-            if unknown is not None and unknown != text:
-                return "VAR_01"
             if in_exponent:
-                return "EXP_03"
+                return "POW_02"
+            if unknown is not None and unknown != text:
+                return "CPT_03"
             unknown = text
         elif text == "=":
             if previous == "start":
                 return "EQL_01"
             if in_exponent:
-                return "EXP_01"
+                return "POW_01"
             if previous in OPERATORS:
-                if before == "start":
-                    return "OPR_10"
-                if before in ("number", "unknown"):
-                    return "VAL_01"
-                return "OPR_02"
+                return "OPR_03" if before == "start" else "OPR_01"
             if equals:
                 return "EQL_03"
             equals = True
         elif text in ("+", "-"):
             if in_exponent:
-                return "EXP_14"
+                return "POW_01"
         elif text == "*":
             if in_exponent:
-                return "EXP_14"
-            # Seul entre le début ou '=' et '=' ou la fin : orphelin, jugé sur ce qui suit.
-            orphan = following(source, match.end()) in ("=", "end")
-            if previous in ("start", "=") and not orphan:
-                return "OPR_01"
+                return "POW_01"
+            if previous in ("start", "="):
+                return leading_star(previous, *following(source, match.end()))
+            if previous == "*" and before in ("number", "unknown"):
+                return "OPR_07"
             if previous in OPERATORS:
                 return "OPR_01"
         elif text == "^":
-            if previous in ("start", "="):
-                next_element = following(source, match.end())
-                if (previous, next_element) in (("start", "="), ("=", "end")):
-                    return "EXP_13"
-                return "EXP_02"
             if previous == "^":
-                return "EXP_07"
+                return "POW_07"
+            if previous in ("start", "="):
+                return leading_caret(previous, *following(source, match.end()))
             if previous in OPERATORS:
-                return "EXP_02"
+                return "POW_04"
             if after_exponent:
-                return "EXP_10"
+                return "POW_08"
 
         after_exponent = exponent_operand
         before = previous
         previous = kind if kind in ("number", "unknown") else text
 
     if previous == "start":
-        return "EMP_01"
+        return "INP_01"
     if previous == "=":
         return "EQL_02"
     if previous == "^":
-        return "EXP_01"
+        return "POW_03"
     if previous in OPERATORS:
-        return "OPR_11" if before == "=" else "OPR_02"
+        if before == "start":
+            return "OPR_04"
+        return "OPR_03" if before == "=" else "OPR_02"
     if not equals:
         return "EQL_04"
     return None

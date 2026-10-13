@@ -4,111 +4,70 @@
 
 import sys
 
+from .token import Token
 from .display import BD_RED, RST, UND
 
+INP_MESSAGES = {
+    "INP_01": "blank input",
+    "INP_02": "unexpected character '{0}'",
+    "INP_03": "misusage of decimal point",
+}
 
-MESSAGES = {
+EQL_MESSAGES = {
+    "EQL_01": "missing left side of equation",
+    "EQL_02": "missing right side of equation",
+    "EQL_03": "multiple equal signs",
+    "EQL_04": "missing equal sign",
+}
 
-    "EXP_01": "value expected after '^' but found '...'",
-    "EXP_02": "unexpected variable '...' in exponent",
-    "EXP_03": "value expected after '^' but found nothing",
-    "EXP_04": "missing base before '^'",
-    "EXP_05": "orphan '^' found",
-    "EXP_06": "exponent must be an integer",
-    "EXP_07": "double exponentiation is not allowed",
-    "EXP_08": "chaining exponents is not allowed",
-    "EXP_09": "operator '...' found before '^'",
+POW_MESSAGES = {
+    "POW_01": "value expected after '^' but found '...'",
+    "POW_02": "unexpected variable '...' in exponent",
+    "POW_03": "value expected after '^' but found nothing",
+    "POW_04": "missing base before '^'",
+    "POW_06": "exponent must be an integer",
+    "POW_07": "double exponentiation is not allowed",
+    "POW_08": "chaining exponents is not allowed",
+    "POW_09": "operator '...' found before '^'",
+}
 
+OPR_MESSAGES = {
     "OPR_01": "value expected after '...' but found '...'",
     "OPR_02": "value expected after '...' but found nothing",
     "OPR_03": "orphan operator '...' found",
     "OPR_04": "stop joking",
     "OPR_05": "value expected before '...' but found '...'",
     "OPR_06": "value expected before '...' but found nothing",
+    "OPR_07": "operator missing between '...' and '...'",
+}
 
-
-    # "EXP_01": "value expected after '^' but found '{text}'",
-    # "EXP_02": "operand expected before '^' but found '{o1}'",
-    # "EXP_03": "illegal variable exponentiation",
-    # "EXP_04": "exponent must be an integer,",
-    # # "EXP_05": "illegal exponent chaining",
-    # # "EXP_06": "division by 0",
-    # "EXP_07": "exponent cannot follow an exponent",
-    # "EXP_08": "exponent cannot follow operator '{o2}'",
-    # # "EXP_09": "exponent cannot be followed by an operator",
-    # "EXP_10": "chaining exponents is not allowed",
-    # "EXP_11": "missing value after exponent",
-    # "EXP_12": "missing value before exponent",
-    # "EXP_13": "orphan exponent",
-    # "EXP_14": "unexpected operator '{o2}' after '^'",
-
-    # "SGN_01": "missing operand before sign '{text}'",
-    # "SGN_02": "missing operand after sign '{text}'",
-    # "SGN_03": "consecutive signs",
-    # "SGN_04": "monomial cannot start with sign '{text}'",
-
-    # "OPR_01": "missing operand before operator '{o2}'",
-    # "OPR_02": "missing operand after operator '{o1}'",
-    # "OPR_03": "consecutive operators",
-    # # "OPR_04": "missing operand between operators {text}",
-    # # "OPR_05": "missing operator between operands {text}",
-    # # "OPR_06": "unexpected operator '{op2}' after '{op1}'",
-    # "OPR_08": "consecutive operators '{o1}' and '{o2}'",
-    # "OPR_10": "orphan operator '{o1}'",
-    # "OPR_11": "orphan operator '{o1}'",
-
-
-
-    # # "MUL_01": "missing operand before multiply",
-    # # "MUL_02": "missing operand after multiply",
-
-    # # "SEQ_01": "invalid operator sequence '{text}'",
-
-    # "VAR_01": "multiple variable names found as '{o1}' and '{o2}'",
-    # # "VAR_02": "illegal variable increment usage",
-    # # "VAR_03": "illegal variable decrement usage",
-
-
-
-
-    # "CHR_01": "unexpected character '{o2}'",
-    # "CHR_02": "misplaced decimal point",
-
-    # # "EXP_01": "missing number after exponent",
-    # "EQL_01": "missing left side of equation",
-    # "EQL_02": "missing right side of equation",
-    # "EQL_03": "multiple equal signs",
-    # "EQL_04": "missing equal sign",
-
-    # "EMP_01": "empty expression",
-
-    # "ERR_01": "Expression error",
-    # "ERR_02": "Expression error",
-
-    # "NBR_01": "missing operator between numbers '{o1}' and '{o2}'",
-    # "NBR_02": "number '{o2}' cannot follow variable '{o1}'",
-
-    # "UNK_00": "unknown error",
-
-    # "[ @@@ ]" : "atom error",
-
-    # "VAL_01": "value expected after operator '{o1}' but found '{o2}'",
-    # "LEN_01": "equation too long: {length} characters, {max} at most",
+CPT_MESSAGES = {
+    "CPT_01": "Expression error",
+    "CPT_02": "equation too long: {length} characters, {max} at most",
+    "CPT_03": "multiple variable names found as '...' and '...'",
 }
 
 
-class ComputorErr(Exception):
+class ComputorException(Exception):
 
-    def __init__(self, code, expr=None, **values):
+    messages: dict[str, str]
+
+    def __init__(self, code, expr=None, *args, **values):
+
         self.code = code
         self.expr = expr
-        self.col = values.get("col")
-        self.fcol = values.get("fcol", self.col)
-        self.tcol = values.get("tcol", self.col)
-        if self.col is None:
-            values["col"] = self.fcol
-        # self.message = MESSAGES[code].format(**values)
-        self.message = code
+
+        st = args[0:1] if args else []
+        nd = args[1:2] if args else []
+
+        st = st[0] if st else None
+        nd = nd[0] if nd else None
+
+        self.fcol = st.col if isinstance(st, Token) else None
+        self.tcol = nd.col + len(nd) -1 if isinstance(nd, Token) else self.fcol
+
+        self.message = self.messages[code].format(*args, **values)
+
 
     def __str__(self):
         msg = f"({self.code}) {self.tcol or ''}: {self.message}"
@@ -128,3 +87,29 @@ class ComputorErr(Exception):
             expr += " " * (self.fcol - 1) + "^" * (self.tcol - self.fcol + 1)
 
         return msg + f"\nin: {expr}\n"
+
+
+class InputError(ComputorException):
+    messages = INP_MESSAGES
+    def __init__(self, code, expr=None, *args):
+        super().__init__("INP_" + code, expr, *args)
+
+class EqualError(ComputorException):
+    messages = EQL_MESSAGES
+    def __init__(self, code, expr=None, *args):
+        super().__init__("EQL_" + code, expr, *args)
+
+class PowerError(ComputorException):
+    messages = POW_MESSAGES
+    def __init__(self, code, expr=None, *args):
+        super().__init__("POW_" + code, expr, *args)
+
+class OperError(ComputorException):
+    messages = OPR_MESSAGES
+    def __init__(self, code, expr=None, *args):
+        super().__init__("OPR_" + code, expr, *args)
+
+class CptorError(ComputorException):
+    messages = CPT_MESSAGES
+    def __init__(self, code, expr=None, *args, **values):
+        super().__init__("CPT_" + code, expr, *args, **values)

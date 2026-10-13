@@ -5,7 +5,6 @@
 
 import re
 
-from .errors import ComputorErr
 from .token import Token
 from .kind import Kind
 

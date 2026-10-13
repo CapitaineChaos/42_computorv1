@@ -8,7 +8,7 @@ import sys
 
 from typing import Any, NamedTuple
 
-from .errors import ComputorErr
+from .errors import CptorError, InputError, EqualError, PowerError, OperError
 from .fraction import Fraction, from_decimal
 from .lexer import tokenize
 from .token import Token
@@ -26,7 +26,7 @@ def parse(source):
     logging.basicConfig(level=logging.DEBUG, format=fmt)
 
     if len(source) > MAX_LEN:
-        raise ComputorErr("LEN_01", length=len(source), max=MAX_LEN)
+        raise CptorError("02", source, length=len(source), max=MAX_LEN)
     
     parser = Parser2(source)
     # left, right = parser.eq_sides()
@@ -97,11 +97,12 @@ class Neutral(NamedTuple):
 
 class Parser2:
     def __init__(self, source):
-        self.source = source
+        self.src = source
         self.tkns = list(tokenize(source))[::-1]
         self.last = Token(Kind.NONE, '', -1, False)
         self.var = None
         self.prev = Token(Kind.NONE, '', -1, False)
+        self.equal = False
 
     def peek(self) -> Token:
         return self.tkns[-1] if self.tkns else self.last
@@ -112,35 +113,22 @@ class Parser2:
         return self.last
 
     def equation(self):
-        token = self.next()
+        self.next()
 
-        # if token is None or not token.kind:
-        #     raise ComputorErr("ERR_01", self.source)
-        # if token.kind != Kind.ST:
-        #     raise ComputorErr("ERR_01", self.source)
-
-        # if self.peek().kind == Kind.EQ:
-        #     raise ComputorErr("EQL_01", self.source)
-        
         left = self.member(Kind.EQ)
 
-        # if self.peek().kind != Kind.EQ:
-        #     raise ComputorErr("EQL_04", self.source)
+        if self.peek().kind != Kind.EQ:
+            raise EqualError("04", self.src)
 
         self.next()
 
-        # if self.peek().kind == Kind.ND:
-        #     raise ComputorErr("EQL_02", self.source)
-        
+        self.equal = True
+
         right = self.member(Kind.ND)
 
-        # if self.peek().kind == Kind.EQ:
-        #     fcol = tcol = self.peek().col
-        #     raise ComputorErr("EQL_03", self.source, fcol=fcol, tcol=tcol)
-        
         # En principe on atteint jamais cette erreur mais on sait jamais
-        # if self.peek().kind != Kind.ND:
-        #     raise ComputorErr("ERR_02", self.source)
+        if self.peek().kind != Kind.ND:
+            raise CptorError("01", self.src)
         
         return Equation(left, right)
 
@@ -172,20 +160,35 @@ class Parser2:
         next = self.peek()
         logging.debug(f"if_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
 
+        # ' 1 **x = ...'
+        if prev.kind == Kind.OP:
+            if last.kind == Kind.OP:
+                raise OperError("05", self.src)
+        
+        if last.kind == Kind.OP:
+            if str(next) == "*":
+                raise OperError("07", self.src)
 
     def pre_term(self):
         prev = self.prev
         last = self.last
         next = self.peek()
         logging.debug(f"pre_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
+
+        # '** 1 = ...'
+        if prev.kind in (Kind.ST):
+            if last.kind == Kind.OP:
+                if next.kind == Kind.OP:
+                    raise OperError("06", self.src)
+
         
         if prev.kind == Kind.EQ:
             if last.kind == Kind.OP:
                 # '... = *'
                 if next.kind == Kind.ND:
-                    raise ComputorErr("OPR_03")
+                    raise OperError("03", self.src)
                 # '... = * 1'
-                raise ComputorErr("OPR_05")
+                raise OperError("05", self.src)
 
     def post_term(self):
         prev = self.prev
@@ -196,15 +199,12 @@ class Parser2:
             # '* 1 ...'
             if last.kind in Kind.OP:
                 if next.kind in (Kind.NB, Kind.VR):
-                    raise ComputorErr("OPR_06")
-            # '* = ...'
-            if last.kind == Kind.EQ:
-                raise ComputorErr("OPR_03")
+                    raise OperError("06", self.src)
             
         # '2 ** 3 = ...'
         if prev.kind == Kind.OP:
             if last.kind == Kind.OP:
-                raise ComputorErr("OPR_01")
+                raise OperError("01", self.src)
 
     def power(self):
         self.pre_power()
@@ -221,10 +221,16 @@ class Parser2:
         last = self.last
         next = self.peek()
         logging.debug(f"pre_power: prev={prev.kind}, last={last.kind}, next={next.kind}")
+        
         # '2 * ^ 1 = ...'
         if last.kind == Kind.OP:
             if next.kind == Kind.PW:
-                raise ComputorErr("EXP_04")
+                raise PowerError("04", self.src)
+            
+        # '... = ^'
+        if last.kind == Kind.EQ:
+            if next.kind == Kind.PW:
+                raise PowerError("04", self.src)
 
     def if_power(self):
         prev = self.prev
@@ -232,37 +238,31 @@ class Parser2:
         next = self.peek()
         logging.debug(f"if_power: prev={prev.kind}, last={last.kind}, next={next.kind}")
         if last.kind == Kind.PW:
-            # '... = *^ 2'
-            if prev.kind == Kind.OP:
-                raise ComputorErr("EXP_09")
             match next.kind:
                 case Kind.OP | Kind.EQ:
-                    raise ComputorErr("EXP_01")
+                    raise PowerError("01", self.src)
                 case Kind.PW:
-                    raise ComputorErr("EXP_07")
+                    raise PowerError("07", self.src)
                 case Kind.VR:
-                    raise ComputorErr("EXP_02")
+                    raise PowerError("02", self.src)
                 case Kind.ND:
-                    raise ComputorErr("EXP_03")
+                    raise PowerError("03", self.src)
                 case Kind.NB:
                     if "." in str(next):
-                        raise ComputorErr("EXP_06")
+                        raise PowerError("06", self.src)
         
     def unary(self):
         self.pre_unary()
         if self.peek().txt == "-":
             logging.debug(f"unary: {self.peek().txt}")
             self.next()
-            # self.error("u", None, None, self.peek())
-            logging.debug(f"post_unary -: prev={self.prev.kind}, last={self.last.kind}, next={self.peek().kind}")
+            self.post_unary()
             return Negate(self.unary())
         if self.peek().txt == "+":
             logging.debug(f"unary: {self.peek().txt}")
             self.next()
-            # self.error("u", None, None, self.peek())
-            logging.debug(f"post_unary +: prev={self.prev.kind}, last={self.last.kind}, next={self.peek().kind}")
+            self.post_unary()
             return Neutral(self.unary())
-        self.post_unary()
         return self.atom()
 
     def pre_unary(self):
@@ -273,7 +273,16 @@ class Parser2:
         if last.kind == Kind.OP:
             # ' ... = +'
             if prev.kind == Kind.EQ and next.kind == Kind.ND:
-                raise ComputorErr("OPR_03")
+                raise OperError("03", self.src)
+             # '1 + = ...'
+            if next.kind == Kind.EQ:
+                raise OperError("01", self.src)
+            # '1 +** 2 = ...'
+            if str(next) == "*":
+                raise OperError("01", self.src)
+            # '... = 1 +'
+            if next.kind == Kind.ND:
+                raise OperError("02", self.src)
 
 
     def post_unary(self):
@@ -284,19 +293,13 @@ class Parser2:
         if last.kind == Kind.OP:
             # '+'
             if prev.kind == Kind.ST and next.kind == Kind.ND:
-                raise ComputorErr("OPR_04")
+                raise OperError("04", self.src)
             # '+ = x'
             if prev.kind == Kind.ST and next.kind == Kind.EQ:
-                raise ComputorErr("OPR_03")
+                raise OperError("03", self.src)
             # '+ ^2 = ...'
             if next.kind == Kind.PW:
-                raise ComputorErr("EXP_04")
-             # '1 + = ...'
-            if next.kind == Kind.EQ:
-                raise ComputorErr("OPR_01")
-            # '... = 1 +'
-            if next.kind == Kind.ND:
-                raise ComputorErr("OPR_02")
+                raise PowerError("04", self.src)
 
 
     def add_mul_token(self, tk):
@@ -332,40 +335,85 @@ class Parser2:
         next = self.peek()
         logging.debug(f"pre_atom: prev={prev.kind}, last={last.kind}, next={next.kind}")
 
+        if next.kind == Kind.MT:
+            if "." in str(next):
+                raise InputError("03", self.src, next)
+            raise InputError("02", self.src, next)   
+        
+        if next.kind == Kind.VR:
+            self.var = self.var or str(next)
+            if self.var != str(next):
+                raise CptorError("03", self.src)
 
-    
+        # '= ...'
+        if last.kind == Kind.ST:
+            if next.kind == Kind.EQ:
+                raise EqualError("01", self.src)
+            
+        if last.kind == Kind.EQ:
+            # '... ='
+            if next.kind == Kind.ND:
+                raise EqualError("02", self.src)
+            
+
+        if self.equal == True:
+            if next.kind == Kind.EQ:
+                raise EqualError("03", self.src)
+
     def post_atom(self):
         prev = self.prev
         last = self.last
         next = self.peek()
         logging.debug(f"post_atom: prev={prev.kind}, last={last.kind}, next={next.kind}")
 
+        # '... * ^ ...' 
+        if last.kind == Kind.OP:
+            if next.kind == Kind.PW:
+                raise PowerError("09", self.src)
+            
+        # ' ... = * ...'
+        if prev.kind == Kind.EQ:
+            if "*" in str(last):
+                raise OperError("05", self.src)
+            
+        if self.equal == True:
+            if next.kind == Kind.EQ:
+                raise EqualError("03", self.src)
+        
+        if next.kind == Kind.MT:
+            if "." in str(next):
+                raise InputError("03", self.src, next)
+            raise InputError("02", self.src, next)
+
+        if prev.kind == Kind.ST:
+            if last.kind == Kind.ND:
+                # ''
+                raise InputError("01")
+        
         if prev.kind == Kind.ST:
             if last.kind == Kind.OP:
                 # '*'
                 if next.kind == Kind.ND:
-                    raise ComputorErr("OPR_04")
+                    raise OperError("04", self.src)
                 # '* = ...'
                 if next.kind == Kind.EQ:
-                    raise ComputorErr("OPR_03")
+                    raise OperError("06", self.src)
+        
+        if last.kind == Kind.VR or last.kind == Kind.NB:
+            if next.kind == Kind.NB:
+                raise OperError("07", self.src)
+           
         # '^ = ...' 
         if prev.kind == Kind.ST:
             if last.kind == Kind.PW:
-                if next.kind == Kind.EQ:
-                    raise ComputorErr("EXP_05")
-                raise ComputorErr("EXP_04")
-        # '... = ^'
-        if prev.kind == Kind.EQ:
-            if last.kind == Kind.PW:
-                if next.kind == Kind.ND:
-                    raise ComputorErr("EXP_05")
-                raise ComputorErr("EXP_04")
+                raise PowerError("04", self.src)
 
         # 'x^3^2 = ...'
         if prev.kind == Kind.PW:
             if last.kind in (Kind.NB, Kind.VR):
                 if next.kind == Kind.PW:
-                    raise ComputorErr("EXP_08")
+                    raise PowerError("08", self.src)
+
                 
 # def evaluate(node):
 #     match node:
