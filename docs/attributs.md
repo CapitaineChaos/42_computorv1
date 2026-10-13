@@ -2,7 +2,7 @@
 
 ## Globales de module
 
-Posées par Python dans chaque fichier `.py` avant sa première ligne.
+Les globales sont posées par Python dans chaque fichier `.py` avant l'execution de sa première ligne.
 On peut les consulter directement dans le module, ou via `globals()`...
 
 - `__name__` : nom du module, ou `"__main__"` si le fichier est lancé directement

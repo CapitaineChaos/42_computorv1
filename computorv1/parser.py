@@ -163,11 +163,11 @@ class Parser2:
         # ' 1 **x = ...'
         if prev.kind == Kind.OP:
             if last.kind == Kind.OP:
-                raise OperError("05", self.src)
+                raise OperError("05", self.src, prev, last)
         
         if last.kind == Kind.OP:
             if str(next) == "*":
-                raise OperError("07", self.src)
+                raise OperError("07", self.src, last, next)
 
     def pre_term(self):
         prev = self.prev
@@ -179,16 +179,16 @@ class Parser2:
         if prev.kind in (Kind.ST):
             if last.kind == Kind.OP:
                 if next.kind == Kind.OP:
-                    raise OperError("06", self.src)
+                    raise OperError("06", self.src, prev, last)
 
         
         if prev.kind == Kind.EQ:
             if last.kind == Kind.OP:
                 # '... = *'
                 if next.kind == Kind.ND:
-                    raise OperError("03", self.src)
+                    raise OperError("03", self.src, last)
                 # '... = * 1'
-                raise OperError("05", self.src)
+                raise OperError("05", self.src, prev, last)
 
     def post_term(self):
         prev = self.prev
@@ -199,12 +199,12 @@ class Parser2:
             # '* 1 ...'
             if last.kind in Kind.OP:
                 if next.kind in (Kind.NB, Kind.VR):
-                    raise OperError("06", self.src)
+                    raise OperError("06", self.src, prev, last)
             
         # '2 ** 3 = ...'
         if prev.kind == Kind.OP:
             if last.kind == Kind.OP:
-                raise OperError("01", self.src)
+                raise OperError("01", self.src, prev, last)
 
     def power(self):
         self.pre_power()
@@ -225,12 +225,12 @@ class Parser2:
         # '2 * ^ 1 = ...'
         if last.kind == Kind.OP:
             if next.kind == Kind.PW:
-                raise PowerError("04", self.src)
+                raise PowerError("04", self.src, last, next)
             
         # '... = ^'
         if last.kind == Kind.EQ:
             if next.kind == Kind.PW:
-                raise PowerError("04", self.src)
+                raise PowerError("05", self.src, last, next)
 
     def if_power(self):
         prev = self.prev
@@ -240,16 +240,16 @@ class Parser2:
         if last.kind == Kind.PW:
             match next.kind:
                 case Kind.OP | Kind.EQ:
-                    raise PowerError("01", self.src)
+                    raise PowerError("01", self.src, last, next)
                 case Kind.PW:
-                    raise PowerError("07", self.src)
+                    raise PowerError("07", self.src, last, next)
                 case Kind.VR:
-                    raise PowerError("02", self.src)
+                    raise PowerError("02", self.src, last, next)
                 case Kind.ND:
-                    raise PowerError("03", self.src)
+                    raise PowerError("03", self.src, last)
                 case Kind.NB:
                     if "." in str(next):
-                        raise PowerError("06", self.src)
+                        raise PowerError("06", self.src, last, next)
         
     def unary(self):
         self.pre_unary()
@@ -273,16 +273,16 @@ class Parser2:
         if last.kind == Kind.OP:
             # ' ... = +'
             if prev.kind == Kind.EQ and next.kind == Kind.ND:
-                raise OperError("03", self.src)
+                raise OperError("03", self.src, last)
              # '1 + = ...'
             if next.kind == Kind.EQ:
-                raise OperError("01", self.src)
+                raise OperError("01", self.src, last, next)
             # '1 +** 2 = ...'
             if str(next) == "*":
-                raise OperError("01", self.src)
+                raise OperError("01", self.src, last, next)
             # '... = 1 +'
             if next.kind == Kind.ND:
-                raise OperError("02", self.src)
+                raise OperError("02", self.src, last)
 
 
     def post_unary(self):
@@ -293,13 +293,13 @@ class Parser2:
         if last.kind == Kind.OP:
             # '+'
             if prev.kind == Kind.ST and next.kind == Kind.ND:
-                raise OperError("04", self.src)
+                raise OperError("04", self.src, last)
             # '+ = x'
             if prev.kind == Kind.ST and next.kind == Kind.EQ:
-                raise OperError("03", self.src)
+                raise OperError("03", self.src, last)
             # '+ ^2 = ...'
             if next.kind == Kind.PW:
-                raise PowerError("04", self.src)
+                raise PowerError("04", self.src, last, next)
 
 
     def add_mul_token(self, tk):
@@ -343,22 +343,22 @@ class Parser2:
         if next.kind == Kind.VR:
             self.var = self.var or str(next)
             if self.var != str(next):
-                raise CptorError("03", self.src)
+                raise CptorError("03", self.src, next, v1=self.var, v2=str(next))
 
         # '= ...'
         if last.kind == Kind.ST:
             if next.kind == Kind.EQ:
-                raise EqualError("01", self.src)
+                raise EqualError("01", self.src, next)
             
         if last.kind == Kind.EQ:
             # '... ='
             if next.kind == Kind.ND:
-                raise EqualError("02", self.src)
+                raise EqualError("02", self.src, last)
             
 
         if self.equal == True:
             if next.kind == Kind.EQ:
-                raise EqualError("03", self.src)
+                raise EqualError("03", self.src, next)
 
     def post_atom(self):
         prev = self.prev
@@ -369,16 +369,16 @@ class Parser2:
         # '... * ^ ...' 
         if last.kind == Kind.OP:
             if next.kind == Kind.PW:
-                raise PowerError("09", self.src)
+                raise PowerError("09", self.src, last, next)
             
         # ' ... = * ...'
         if prev.kind == Kind.EQ:
             if "*" in str(last):
-                raise OperError("05", self.src)
+                raise OperError("05", self.src, prev, last)
             
         if self.equal == True:
             if next.kind == Kind.EQ:
-                raise EqualError("03", self.src)
+                raise EqualError("03", self.src, next)
         
         if next.kind == Kind.MT:
             if "." in str(next):
@@ -394,25 +394,25 @@ class Parser2:
             if last.kind == Kind.OP:
                 # '*'
                 if next.kind == Kind.ND:
-                    raise OperError("04", self.src)
+                    raise OperError("04", self.src, last)
                 # '* = ...'
                 if next.kind == Kind.EQ:
-                    raise OperError("06", self.src)
+                    raise OperError("06", self.src, prev, last)
         
         if last.kind == Kind.VR or last.kind == Kind.NB:
             if next.kind == Kind.NB:
-                raise OperError("07", self.src)
+                raise OperError("07", self.src, last, next)
            
         # '^ = ...' 
         if prev.kind == Kind.ST:
             if last.kind == Kind.PW:
-                raise PowerError("04", self.src)
+                raise PowerError("04", self.src, last)
 
         # 'x^3^2 = ...'
         if prev.kind == Kind.PW:
             if last.kind in (Kind.NB, Kind.VR):
                 if next.kind == Kind.PW:
-                    raise PowerError("08", self.src)
+                    raise PowerError("08", self.src, prev, next)
 
                 
 # def evaluate(node):

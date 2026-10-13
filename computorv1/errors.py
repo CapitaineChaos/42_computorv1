@@ -21,24 +21,25 @@ EQL_MESSAGES = {
 }
 
 POW_MESSAGES = {
-    "POW_01": "value expected after '^' but found '...'",
-    "POW_02": "unexpected variable '...' in exponent",
+    "POW_01": "value expected after '^' but found '{1}'",
+    "POW_02": "unexpected variable '{1}' in exponent",
     "POW_03": "value expected after '^' but found nothing",
     "POW_04": "missing base before '^'",
+    "POW_05": "base expected before '^' but found '{1}'",
     "POW_06": "exponent must be an integer",
     "POW_07": "double exponentiation is not allowed",
     "POW_08": "chaining exponents is not allowed",
-    "POW_09": "operator '...' found before '^'",
+    "POW_09": "operator '{0}' found before '^'",
 }
 
 OPR_MESSAGES = {
-    "OPR_01": "value expected after '...' but found '...'",
-    "OPR_02": "value expected after '...' but found nothing",
-    "OPR_03": "orphan operator '...' found",
+    "OPR_01": "value expected after '{0}' but found '{1}'",
+    "OPR_02": "value expected after '{0}' but found nothing",
+    "OPR_03": "orphan operator '{0}' found",
     "OPR_04": "stop joking",
-    "OPR_05": "value expected before '...' but found '...'",
-    "OPR_06": "value expected before '...' but found nothing",
-    "OPR_07": "operator missing between '...' and '...'",
+    "OPR_05": "value expected before '{1}' but found '{0}'",
+    "OPR_06": "value expected before '{1}' but found nothing",
+    "OPR_07": "operator missing between '{0}' and '{1}'",
 }
 
 CPT_MESSAGES = {
@@ -64,13 +65,14 @@ class ComputorException(Exception):
         nd = nd[0] if nd else None
 
         self.fcol = st.col if isinstance(st, Token) else None
-        self.tcol = nd.col + len(nd) -1 if isinstance(nd, Token) else self.fcol
+        self.dcol = nd.col if isinstance(nd, Token) else self.fcol
+        self.tcol = self.dcol + len(str(nd if nd is not None else st)) - 1 if self.dcol else None
 
         self.message = self.messages[code].format(*args, **values)
 
 
     def __str__(self):
-        msg = f"({self.code}) {self.tcol or ''}: {self.message}"
+        msg = f"({self.code}) {self.dcol or ''}: {self.message}"
 
         if self.expr is None:
             return msg

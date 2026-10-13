@@ -113,7 +113,7 @@ ACCEPTED = None
 REJECTED = "refusé"
 
 # Codes pas encore tranchés : saisie → question. L'attendu provisoire reste celui de son
-# groupe ; make provisoire affiche la question sur la ligne et en fin de sortie.
+# groupe ; make test_common affiche la question sur la ligne et en fin de sortie.
 PENDING = {}
 
 
@@ -722,7 +722,6 @@ class Exponent(Input):
                 [
                     "^2 = x",
                     "^ 1 = 0",
-                    "x = ^2",
                     "x +^2 = 0",
                     "3x-^2 = 0",
                     "4*^2 = x",
@@ -733,12 +732,9 @@ class Exponent(Input):
                     "++^2 = x",
                     "^",
                     "^ = 1",
-                    "x = ^",
-                    "x = ^ = 1",
-                    "x = ^%",
-                    "x = ^.",
                 ],
             ),
+            ("POW_05", ["x = ^2", "x = ^", "x = ^ = 1", "x = ^%", "x = ^."]),
             ("POW_09", ["*^2 = x", "x = *^2"]),
             ("INP_02", ["^% = 1"]),
             ("INP_03", ["^. = 1"]),
@@ -869,7 +865,7 @@ class Exponent(Input):
                 cases.append((f"2{before}{first}{gap}{second}{after}1 = x", code))
         cases += [
             ("^ 1 = x", "POW_04"),
-            ("x = ^ 1", "POW_04"),
+            ("x = ^ 1", "POW_05"),
             ("1 ^ = x", "POW_01"),
             ("x = 1 ^", "POW_03"),
         ]

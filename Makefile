@@ -4,10 +4,10 @@ RUFF    := $(VENV)/bin/ruff
 SRC     := computor computorv1 tests
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run test provisoire fuzz lint format clean fclean re
+.PHONY: help venv run test test_common test_display lint format clean fclean re
 
 help:
-	@grep -E '^[a-z]+:' Makefile | cut -d: -f1 | tr '\n' ' '
+	@grep -E '^[a-z_]+:' Makefile | cut -d: -f1 | tr '\n' ' '
 	@echo
 
 venv: $(RUFF)
@@ -30,21 +30,16 @@ run: venv
 test: venv
 	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
 
-ifeq (provisoire,$(firstword $(MAKECMDGOALS)))
+ifneq (,$(filter test_common test_display,$(firstword $(MAKECMDGOALS))))
 G       := $(or $(G),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
 .DEFAULT: ; @:
 endif
 
-provisoire: venv
-	@$(PYTHON) tests/provisoire.py $(G)
+test_common: venv
+	@$(PYTHON) tests/report.py common $(G)
 
-ifeq (fuzz,$(firstword $(MAKECMDGOALS)))
-N       := $(or $(N),$(word 2,$(MAKECMDGOALS)))
-.DEFAULT: ; @:
-endif
-
-fuzz: venv
-	@$(PYTHON) tests/fuzz.py $(if $(N),--count $(N)) $(if $(SEED),--seed $(SEED))
+test_display: venv
+	@$(PYTHON) tests/report.py display $(G)
 
 lint: venv
 	$(RUFF) check --no-cache $(SRC)
