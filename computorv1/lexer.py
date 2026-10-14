@@ -31,7 +31,7 @@ def tokenize(code):
     flag_space = False
     yield Token(Kind.ST, 's', 0, flag_space)
     for mo in re.finditer(tok_regex, code):
-        kind = mo.lastgroup or Kind.NONE
+        kind = Kind(mo.lastgroup) if mo.lastgroup else Kind.NONE
         value = mo.group()
         column = mo.start() + 1
         if kind == Kind.SKIP:

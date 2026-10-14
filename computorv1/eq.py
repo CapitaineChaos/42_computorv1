@@ -4,8 +4,57 @@
 
 from .display import reduced_form
 from .reduce import MAX_REDUCED_DISP, coeffs_to_array
+from .fraction import Fraction
+
 
 COEFFICIENTS = ("a", "b", "c")
+
+
+# class Coeff:
+#     def __init__(self, name: str, degree: int, base: Fraction):
+#         self.name = name or 'X'
+#         self.degree = degree
+#         self.base = base
+
+#     def __repr__(self):
+#         return f"Coeff({self.base}, {self.base})"
+
+class Polynomial:
+    def __init__(self, coeffs: dict[int, Fraction]):
+        self.coeffs = coeffs
+
+    def __add__(self, other: Polynomial) -> Polynomial:
+        coeffs = dict(self.coeffs)
+        for degree, base in other.coeffs.items():
+            coeffs[degree] = coeffs.get(degree, Fraction(0)) + base
+        return Polynomial(coeffs)
+
+    def __neg__(self) -> Polynomial:
+        coeffs = dict(self.coeffs)
+        for degree, base in coeffs.items():
+            coeffs[degree] = -base
+        return Polynomial(coeffs)  
+
+    def __sub__(self, other: Polynomial) -> Polynomial:
+        return self + -other
+
+    def __mul__(self, other: Polynomial) -> Polynomial:
+        coeffs = {}
+        for degree1, base1 in self.coeffs.items():
+            for degree2, base2 in other.coeffs.items():
+                degree3 = degree1 + degree2
+                base3 = coeffs.get(degree3, Fraction(0)) + base1 * base2
+                coeffs[degree3] = base3
+        return Polynomial(coeffs)
+
+    def __pow__(self, n: int) -> Polynomial:
+        result = Polynomial({0: Fraction(1)})
+        for _ in range(n):
+            result = result * self
+        return result
+
+    def __repr__(self):
+        return f"Polynomial({self.coeffs})"
 
 
 class Equation:

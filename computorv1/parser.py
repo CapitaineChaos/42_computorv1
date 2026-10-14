@@ -6,17 +6,17 @@
 import logging
 import sys
 
-from typing import Any, NamedTuple
-
-from .errors import CptorError, InputError, EqualError, PowerError, OperError
-from .fraction import Fraction, from_decimal
+from .errors import CptorError, EqualError, InputError, OperError, PowerError
+from .fraction import from_decimal
 from .lexer import tokenize
 from .token import Token
 from .kind import Kind
 from .reduce import reduce
+from .node import BinaryOp, Equation, Negate, Neutral, Number, Power, Variable
+from .show import show
+from .eval import evaluate
 
 MAX_LEN = 200
-
 
 def parse(source):
     if sys.stderr.isatty():
@@ -30,69 +30,13 @@ def parse(source):
     
     parser = Parser2(source)
     # left, right = parser.eq_sides()
-    show(parser.equation())
+    equation = parser.equation()
+    show(equation)
     print("-------------------------------------------------", flush=True)
+    evaluated = evaluate(equation)
+    print(f"evaluated: {evaluated}", flush=True)
     # coefficients, degree = reduce(left, right)
     # return coefficients, degree, parser.name
-
-
-
-def show(node, prefix="", last=True):
-    print(prefix + ("└── " if last else "├── "), end="")
-
-    prefix += "    " if last else "│   "
-    
-    match node:
-        case Number(value):
-            print(value)
-        case BinaryOp(left, op, right):
-            print(op)
-            show(left, prefix, False)
-            show(right, prefix, True)
-        case Equation(left, right):
-            print("=")
-            show(left, prefix, False)
-            show(right, prefix, True)
-        case Variable(name):
-            print(name)
-        case Power(base, exponent):
-            print("^")
-            show(base, prefix, False)
-            show(exponent, prefix, True)
-        case Negate(value):
-            print("-")
-            show(value, prefix, True)
-        case Neutral(value):
-            print("+")
-            show(value, prefix, True)
-        case _:
-            print(repr(node))
-
-
-class Variable(NamedTuple):
-    name: str
-
-class Power(NamedTuple):
-    base: Any
-    exponent: Any
-
-class Equation(NamedTuple):
-    left: Any
-    right: Any
-
-class Number(NamedTuple):
-    value: Fraction
-
-class BinaryOp(NamedTuple):
-    left: Any
-    op: Token
-    right: Any
-
-class Negate(NamedTuple):
-    value: Any
-
-class Neutral(NamedTuple):
-    value: Any
 
 
 class Parser2:
@@ -139,77 +83,23 @@ class Parser2:
             logging.debug(f"expr: {self.peek().txt}")
             op = self.next()
             right = self.term()
-            left = BinaryOp(left, op, right)
+            left = BinaryOp(left, str(op), right)
         return left
     
-
     def term(self):
         left = self.power()
-        self.pre_term()
         while self.peek().txt in ("*", "/"):
+            logging.debug(f"term: {self.peek().txt}")
             op = self.next()
-            self.if_term()
             right = self.power()
-            left = BinaryOp(left, op, right)
-        self.post_term()
+            left = BinaryOp(left, str(op), right)
         return left
-
-    def if_term(self):
-        prev = self.prev
-        last = self.last
-        next = self.peek()
-        logging.debug(f"if_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
-
-        # ' 1 **x = ...'
-        if prev.kind == Kind.OP:
-            if last.kind == Kind.OP:
-                raise OperError("05", self.src, prev, last)
-        
-        if last.kind == Kind.OP:
-            if str(next) == "*":
-                raise OperError("07", self.src, last, next)
-
-    def pre_term(self):
-        prev = self.prev
-        last = self.last
-        next = self.peek()
-        logging.debug(f"pre_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
-
-        # '** 1 = ...'
-        if prev.kind in (Kind.ST):
-            if last.kind == Kind.OP:
-                if next.kind == Kind.OP:
-                    raise OperError("06", self.src, prev, last)
-
-        
-        if prev.kind == Kind.EQ:
-            if last.kind == Kind.OP:
-                # '... = *'
-                if next.kind == Kind.ND:
-                    raise OperError("03", self.src, last)
-                # '... = * 1'
-                raise OperError("05", self.src, prev, last)
-
-    def post_term(self):
-        prev = self.prev
-        last = self.last
-        next = self.peek()
-        logging.debug(f"post_term: prev={prev.kind}, last={last.kind}, next={next.kind}")
-        if prev.kind == Kind.ST:
-            # '* 1 ...'
-            if last.kind in Kind.OP:
-                if next.kind in (Kind.NB, Kind.VR):
-                    raise OperError("06", self.src, prev, last)
-            
-        # '2 ** 3 = ...'
-        if prev.kind == Kind.OP:
-            if last.kind == Kind.OP:
-                raise OperError("01", self.src, prev, last)
 
     def power(self):
         self.pre_power()
         left = self.unary()
         if self.peek().txt == "^":
+            logging.debug(f"power: {self.peek().txt}")
             self.next()
             self.if_power()
             right = self.unary()
@@ -308,16 +198,12 @@ class Parser2:
             self.tkns.append(Token(Kind.OP, "*", tk.col, False))
 
     def atom(self):
-
         self.pre_atom()
-
         token = self.next()
-
         node = None
-
         if token.kind == Kind.NB:
             logging.debug(f"atom: {token.txt}")
-            node = Number(from_decimal(token.txt))
+            node = Number(token.txt)
             self.add_mul_token(self.peek())
         
         elif token.kind == Kind.VR:
@@ -326,7 +212,9 @@ class Parser2:
             self.add_mul_token(self.peek())
 
         self.post_atom()
-        
+
+        if node is None:
+            raise CptorError("01", self.src)
         return node
 
     def pre_atom(self):
@@ -345,8 +233,8 @@ class Parser2:
             if self.var != str(next):
                 raise CptorError("03", self.src, next, v1=self.var, v2=str(next))
 
-        # '= ...'
         if last.kind == Kind.ST:
+            # '= ...'
             if next.kind == Kind.EQ:
                 raise EqualError("01", self.src, next)
             
@@ -386,42 +274,32 @@ class Parser2:
             raise InputError("02", self.src, next)
 
         if prev.kind == Kind.ST:
+            # ''
             if last.kind == Kind.ND:
-                # ''
                 raise InputError("01")
-        
-        if prev.kind == Kind.ST:
-            if last.kind == Kind.OP:
+            # '^ = ...' 
+            if last.kind == Kind.PW:
+                raise PowerError("04", self.src, last)
+            
+            if last.kind in Kind.OP:
+                # '* 1 ...'
+                if next.kind in (Kind.NB, Kind.VR):
+                    raise OperError("06", self.src, last)
+                # '** 1 = ...'
+                if next.kind == Kind.OP:
+                    raise OperError("06", self.src, last)
+                # '* = ...'
+                if next.kind == Kind.EQ:
+                    raise OperError("06", self.src, last)
                 # '*'
                 if next.kind == Kind.ND:
                     raise OperError("04", self.src, last)
-                # '* = ...'
-                if next.kind == Kind.EQ:
-                    raise OperError("06", self.src, prev, last)
         
-        if last.kind == Kind.VR or last.kind == Kind.NB:
+        if last.kind in (Kind.NB, Kind.VR):
+            # '2 3 = ...'
             if next.kind == Kind.NB:
                 raise OperError("07", self.src, last, next)
-           
-        # '^ = ...' 
-        if prev.kind == Kind.ST:
-            if last.kind == Kind.PW:
-                raise PowerError("04", self.src, last)
-
-        # 'x^3^2 = ...'
-        if prev.kind == Kind.PW:
-            if last.kind in (Kind.NB, Kind.VR):
+            # 'x^3^2 = ...'
+            if prev.kind == Kind.PW:
                 if next.kind == Kind.PW:
                     raise PowerError("08", self.src, prev, next)
-
-                
-# def evaluate(node):
-#     match node:
-#         case Num(value):
-#             return value
-#         case BinOp("+", left, right):
-#             return evaluate(left) + evaluate(right)
-#         case BinOp("*", left, right):
-#             return evaluate(left) * evaluate(right)
-
-

@@ -570,9 +570,10 @@ class Operators(Input):
                     "+*^2 = x",
                     "+*. = 1",
                     "+*% = 1",
+                    "3 * * x = 1",
+                    "4**2 = x",
                 ],
             ),
-            ("OPR_07", ["3 * * x = 1", "4**2 = x"]),
         )
 
     def test_operator_before_equals(self):
@@ -620,8 +621,7 @@ class Operators(Input):
         for first, second in product("+-*", repeat=2):
             for before, gap, after in product(("", " "), repeat=3):
                 source = f"2{before}{first}{gap}{second}{after}1 = x"
-                code = "OPR_07" if first == second == "*" else "OPR_01"
-                cases.append((source, ACCEPTED if second in "+-" else code))
+                cases.append((source, ACCEPTED if second in "+-" else "OPR_01"))
         self.check(cases)
 
     def test_at_edges(self):
@@ -638,7 +638,7 @@ class Operators(Input):
         """Opérateurs d'autres langages : puissance, comparaison, affectation."""
         self.check(
             [
-                ("x ** 2 = 1", "OPR_07"),
+                ("x ** 2 = 1", "OPR_01"),
                 ("x // 2 = 1", "INP_02"),
                 ("x == 1", "EQL_03"),
                 ("x != 1", "INP_02"),

@@ -4,9 +4,10 @@
 
 
 from typing import NamedTuple
+from .kind import Kind
 
 class Token(NamedTuple):
-    kind: str
+    kind: Kind
     txt: str
     col: int
     spaced: bool = False
