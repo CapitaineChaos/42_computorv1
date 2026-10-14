@@ -5,15 +5,8 @@
 import logging
 import sys
 from .node import BinaryOp, Equation, Negate, Neutral, Number, Power, Variable
-from .eq import Polynomial
+from .polynomial import Polynomial
 from .fraction import Fraction, from_decimal
-
-
-# if sys.stderr.isatty():
-#     fmt = "\033[34mPARSER:\033[0m \033[37m%(message)s\033[0m"
-# else:
-#     fmt = "PARSER: %(message)s"
-# logging.basicConfig(level=logging.DEBUG, format=fmt)
 
 def evaluate(node):
     match node:
@@ -33,7 +26,7 @@ def evaluate(node):
         case Power(base, Number(n)):
             return evaluate(base) ** int(n)
         case Negate(value):
-            return evaluate(value)
+            return -evaluate(value)
         case Neutral(value):
             return evaluate(value)
         case Equation(left, right):

@@ -6,7 +6,7 @@ import os
 import sys
 import readline
 
-from .builder import build_eq
+# from .builder import build_eq
 from .errors import ComputorException
 from .parser import parse
 

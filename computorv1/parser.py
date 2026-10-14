@@ -11,7 +11,6 @@ from .fraction import from_decimal
 from .lexer import tokenize
 from .token import Token
 from .kind import Kind
-from .reduce import reduce
 from .node import BinaryOp, Equation, Negate, Neutral, Number, Power, Variable
 from .show import show
 from .eval import evaluate
