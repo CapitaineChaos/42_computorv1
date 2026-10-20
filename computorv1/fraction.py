@@ -15,12 +15,12 @@ def gcd(a, b):
     return abs(a)
 
 
-def from_decimal(text: str) -> "Fraction":
+def from_decimal(text: str) -> Fraction:
     ipart, _, frac = text.partition(".")
     return Fraction(int(ipart + frac), 10 ** len(frac))
 
 
-def to_fraction(x: float) -> "Fraction":
+def to_fraction(x: int | Fraction) -> Fraction:
     if isinstance(x, Fraction):
         return x
     return Fraction(x)
@@ -34,81 +34,83 @@ class Fraction:
         g = gcd(numerator, denominator)
         if denominator < 0:
             g = -g
+        # Denom tjrs positif pour pouvour comparer tranquillement
         self.numerator = numerator // g
         self.denominator = denominator // g
 
     def __repr__(self) -> str:
         return f"Fraction({self.numerator}, {self.denominator})"
 
-    def __add__(a, b):
+    def __add__(self, b):
         if isinstance(b, float):
-            return float(a) + b
+            return float(self) + b
         b = to_fraction(b)
         return Fraction(
-            a.numerator * b.denominator + b.numerator * a.denominator,
-            a.denominator * b.denominator,
+            self.numerator * b.denominator + b.numerator * self.denominator,
+            self.denominator * b.denominator,
         )
 
     __radd__ = __add__
 
-    def __sub__(a, b):
+    def __sub__(self, b):
         if isinstance(b, float):
-            return float(a) - b
+            return float(self) - b
         b = to_fraction(b)
         return Fraction(
-            a.numerator * b.denominator - b.numerator * a.denominator,
-            a.denominator * b.denominator,
+            self.numerator * b.denominator - b.numerator * self.denominator,
+            self.denominator * b.denominator,
         )
 
     # x - Fraction(y, z) => a = Fraction(y, z) et b = x.
-    def __rsub__(a, b):
-        return -a + b
+    def __rsub__(self, b):
+        return -self + b
 
-    def __mul__(a, b):
+    def __mul__(self, b):
         if isinstance(b, float):
-            return float(a) * b
+            return float(self) * b
         b = to_fraction(b)
-        return Fraction(a.numerator * b.numerator, a.denominator * b.denominator)
+        return Fraction(self.numerator * b.numerator, self.denominator * b.denominator)
 
     __rmul__ = __mul__
 
-    def __truediv__(a, b):
+    def __truediv__(self, b):
         if isinstance(b, float):
-            return float(a) / b
+            return float(self) / b
         b = to_fraction(b)
-        return Fraction(a.numerator * b.denominator, a.denominator * b.numerator)
+        return Fraction(self.numerator * b.denominator, self.denominator * b.numerator)
 
-    def __rtruediv__(a, b):
+    def __rtruediv__(self, b):
         if isinstance(b, float):
-            return b / float(a)
-        return to_fraction(b) / a
+            return b / float(self)
+        return to_fraction(b) / self
 
-    # math.pow ne sert qu'à lever OverflowError avant de calculer un entier géant ;
-    # le résultat est exact : 3.1^2 = 961/100 et non 9.610000000000001.
-    def __pow__(a, n):
-        base = 1 / a if n < 0 else a
+    # math.pow sert à lever OverflowError avant de calculer un int geant
+    # res est exact : 3.1^2 = 961/100 au lieu de 9.610000000000001
+    def __pow__(self, n):
+        base = Fraction(self.denominator, self.numerator) if n < 0 else self
         value = math.pow(base, abs(n))
         if value == 0.0 and base != 0:
             raise ValueError("number too small")
         return Fraction(base.numerator ** abs(n), base.denominator ** abs(n))
 
-    def __neg__(a):
-        return Fraction(-a.numerator, a.denominator)
+    def __neg__(self):
+        return Fraction(-self.numerator, self.denominator)
 
-    def __abs__(a):
-        return -a if a < 0 else a
+    def __abs__(self):
+        return -self if self < 0 else self
 
-    def __eq__(a, b):
+    def __eq__(self, b):
         b = to_fraction(b)
-        return a.numerator == b.numerator and a.denominator == b.denominator
+        return self.numerator == b.numerator and self.denominator == b.denominator
 
-    # Dénominateurs positifs : a/b < c/d si et seulement si ad < bc.
-    def __lt__(a, b):
+    # Dénominateurs positifs : a/b < c/d si et seulement si ad < bc
+    # egalité vraie seulement si bd > 0, genre -1/2 < 1/3 OK mais 1/-2 < 1/3 KO
+    def __lt__(self, b):
         b = to_fraction(b)
-        return a.numerator * b.denominator < b.numerator * a.denominator
+        return self.numerator * b.denominator < b.numerator * self.denominator
 
-    def __gt__(a, b):
-        return to_fraction(b) < a
+    def __gt__(self, b):
+        return to_fraction(b) < self
 
     def __float__(self):
         value = int(self.numerator) / int(self.denominator)

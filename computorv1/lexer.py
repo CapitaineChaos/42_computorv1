@@ -32,7 +32,7 @@ def tokenize(code):
     yield Token(Kind.ST, 's', 0, flag_space)
     for mo in re.finditer(tok_regex, code):
         kind = Kind(mo.lastgroup) if mo.lastgroup else Kind.NONE
-        value = mo.group()
+        value : str = mo.group()
         column = mo.start() + 1
         if kind == Kind.SKIP:
             flag_space = True

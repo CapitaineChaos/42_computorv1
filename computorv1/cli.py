@@ -5,15 +5,24 @@
 import os
 import sys
 import readline
+import logging
 
-# from .builder import build_eq
+from .builder import build
 from .errors import ComputorException
-from .parser import parse
+from .parser import Parser
+from .show import show
+from .eval import evaluate
 
 STEPS_FLAGS = ("-s", "--steps")
 
 
 def main(argv):
+
+    if sys.stderr.isatty():
+        fmt = "\033[36mPARSER:\033[0m \033[35m%(message)s\033[0m"
+    else:
+        fmt = "PARSER: %(message)s"
+    logging.basicConfig(level=logging.DEBUG, format=fmt)
 
     show_steps = any(arg in STEPS_FLAGS for arg in argv)
     argv = [arg for arg in argv if arg not in STEPS_FLAGS]
@@ -74,7 +83,14 @@ def answer(source, show_steps):
         # coeffs, degree, name = parse(source)
         # eq = build_eq(coeffs, degree, name)
         # lines = eq.lines(show_steps)
-        parse(source)
+        parsed = Parser(source)
+        equation = parsed.equation()
+        show(equation)
+        print("-------------------------------------------------", flush=True)
+        evaluated = evaluate(equation)
+        print(f"evaluated: {evaluated}", flush=True)
+        equation = build(evaluated, "X")
+        print("\n".join(equation.lines(True)))
     except (ComputorException, ValueError, ZeroDivisionError) as error:
         print(f"computor: {error}", file=sys.stderr)
         return False

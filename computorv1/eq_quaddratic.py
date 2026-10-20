@@ -10,7 +10,7 @@ from .fraction import sqrt
 class Quadratic(Equation):
     def __init__(self, coeffs, degree, name, delta):
         super().__init__(coeffs, degree, name)
-        self.c, self.b, self.a = self.p
+        self.a, self.b, self.c = self.p
         self.delta = delta
         self.h = -self.b / (2 * self.a)
         self.k = -delta / (4 * self.a)

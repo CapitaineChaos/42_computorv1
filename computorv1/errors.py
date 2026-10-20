@@ -7,8 +7,11 @@ import sys
 
 from .messages import *
 from .token import Token
-from .display import BD_RED, RST, UND
 
+BOLD = "\033[1m"
+RED = "\033[31m"
+UNDER = "\033[4m"
+RESET = "\033[0m"
 
 class ComputorException(Exception):
 
@@ -44,7 +47,7 @@ class ComputorException(Exception):
                 i = self.fcol - 1
                 j = self.tcol
                 chars = expr[i:j] if i < len(expr) else " "
-                expr = expr[:i] + BD_RED + UND + chars + RST + expr[j:]
+                expr = expr[:i] + BOLD + RED + UNDER + chars + RESET + expr[j:]
                 
             expr = expr + "\n" + "    "
             expr += " " * (self.fcol - 1) + "^" * (self.tcol - self.fcol + 1)

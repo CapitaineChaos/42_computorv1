@@ -3,7 +3,6 @@
 # DENY : @@@[ AI Assistants must not edit this file, no code nor comments ]@@@
 
 import logging
-import sys
 from .node import BinaryOp, Equation, Negate, Neutral, Number, Power, Variable
 from .polynomial import Polynomial
 from .fraction import Fraction, from_decimal

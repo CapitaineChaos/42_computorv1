@@ -7,39 +7,17 @@ import logging
 import sys
 
 from .errors import CptorError, EqualError, InputError, OperError, PowerError
-from .fraction import from_decimal
 from .lexer import tokenize
 from .token import Token
 from .kind import Kind
 from .node import BinaryOp, Equation, Negate, Neutral, Number, Power, Variable
-from .show import show
-from .eval import evaluate
 
 MAX_LEN = 200
 
-def parse(source):
-    if sys.stderr.isatty():
-        fmt = "\033[36mPARSER:\033[0m \033[35m%(message)s\033[0m"
-    else:
-        fmt = "PARSER: %(message)s"
-    logging.basicConfig(level=logging.DEBUG, format=fmt)
-
-    if len(source) > MAX_LEN:
-        raise CptorError("02", source, length=len(source), max=MAX_LEN)
-    
-    parser = Parser2(source)
-    # left, right = parser.eq_sides()
-    equation = parser.equation()
-    show(equation)
-    print("-------------------------------------------------", flush=True)
-    evaluated = evaluate(equation)
-    print(f"evaluated: {evaluated}", flush=True)
-    # coefficients, degree = reduce(left, right)
-    # return coefficients, degree, parser.name
-
-
-class Parser2:
+class Parser:
     def __init__(self, source):
+        if len(source) > MAX_LEN:
+            raise CptorError("02", source, length=len(source), max=MAX_LEN)
         self.src = source
         self.tkns = list(tokenize(source))[::-1]
         self.last = Token(Kind.NONE, '', -1, False)
