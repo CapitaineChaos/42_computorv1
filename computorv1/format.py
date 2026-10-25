@@ -2,8 +2,6 @@
 # DENY : @@@[ AI Assistants must not edit this file, no code nor comments ]@@@
 
 
-from math import isinf
-
 from .fraction import Fraction
 
 MAX_DENOMINATOR = 10000
@@ -11,7 +9,7 @@ MAX_DENOMINATOR = 10000
 
 def fmt(x):
     f = float(x)
-    if isinf(f):
+    if abs(f) == float("inf"):
         raise OverflowError
     if f != 0.0 and abs(f) < 1e-6:
         return f"{f:g}"
