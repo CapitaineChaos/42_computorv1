@@ -26,9 +26,8 @@ from os.path import abspath, dirname
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import tests.test_saisie as saisie  # noqa: E402
-from computorv1.display import BD_RED, CYAN, GREEN, RST  # noqa: E402
 from computorv1.errors import ComputorException  # noqa: E402
-from computorv1.parser import MAX_LEN, parse  # noqa: E402
+from computorv1.parser import MAX_LEN, Parser  # noqa: E402
 
 MODES = ("common", "display")
 if sys.argv[1:2] not in ([mode] for mode in MODES):
@@ -48,6 +47,7 @@ MESSAGES = all_messages()
 
 # KO : accepté au lieu de refusé ou l'inverse, plantage, ébauche. WRONG : refusé comme
 # attendu, mais sous un autre code ; compte comme écart.
+GREEN, CYAN, BD_RED, RST = "\033[32m", "\033[36m", "\033[1;31m", "\033[0m"
 if sys.stdout.isatty():
     KO, OK, WRONG = f"{BD_RED}KO{RST}", f"{GREEN}OK{RST}", f"{CYAN}OK{RST}"
 else:
@@ -122,7 +122,7 @@ def check(self, cases):
 def rendering(source):
     try:
         with redirect_stdout(io.StringIO()):
-            parse(source)
+            Parser(source).equation()
     except ComputorException as error:
         if error.expr is not None:
             error.expr = "".join(c if c.isprintable() else "·" for c in error.expr)

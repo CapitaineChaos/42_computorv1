@@ -5,6 +5,16 @@
 - stdin : flux d'entrée standard, descripteur de fichier `0`
 - En Python : `sys.stdin`, objet fichier texte
 
+
+## Info super méga cool
+
+```python
+import readline
+```
+
+Ceci suffit pour avoir l'historique avec les flèches haut/bas dans les input()
+
+
 ## Sources
 
 | Commande                      | contenu de stdin                       |
@@ -36,7 +46,7 @@
 
 ## Capturer Ctrl-D
 
-Ctrl-D est juste une fin de flux pour Python, comme la fin d'un pipe
+Ctrl-D est une fin de flux, comme la fin d'un pipe
 
 
 ```python

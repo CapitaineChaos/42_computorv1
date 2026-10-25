@@ -78,7 +78,7 @@ sys.path.insert(0, ROOT)
 
 import tests.common  # noqa: E402, F401
 from computorv1.errors import ComputorException  # noqa: E402
-from computorv1.parser import MAX_LEN, parse  # noqa: E402
+from computorv1.parser import MAX_LEN, Parser  # noqa: E402
 
 # unittest masque la pile des modules qui définissent __unittest : un échec n'affiche que
 # le tableau des écarts.
@@ -90,7 +90,7 @@ __unittest = True
 def verdict(source):
     try:
         with redirect_stdout(io.StringIO()):
-            parse(source)
+            Parser(source).equation()
     except ComputorException as error:
         return error.code
     except Exception as error:

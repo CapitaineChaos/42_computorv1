@@ -4,7 +4,7 @@ RUFF    := $(VENV)/bin/ruff
 SRC     := computor computorv1 tests
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run test test_common test_display lint format clean fclean re
+.PHONY: help venv run test test_solutions test_common test_display lint format clean fclean re
 
 help:
 	@grep -E '^[a-z_]+:' Makefile | cut -d: -f1 | tr '\n' ' '
@@ -29,6 +29,9 @@ run: venv
 
 test: venv
 	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
+
+test_solutions: venv
+	@$(PYTHON) -m unittest tests.test_solutions
 
 ifneq (,$(filter test_common test_display,$(firstword $(MAKECMDGOALS))))
 G       := $(or $(G),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
