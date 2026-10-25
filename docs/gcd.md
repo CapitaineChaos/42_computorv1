@@ -1,3 +1,7 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
 
 # GCD
 

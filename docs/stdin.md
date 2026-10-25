@@ -1,3 +1,8 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
+
 # stdin
 
 [Doc Python](https://docs.python.org/3/library/sys.html#sys.stdin)

@@ -1,3 +1,8 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
+
 # Lint
 
 [Ruff linting](https://blog.stephane-robert.info/docs/developper/programmation/python/ruff/)

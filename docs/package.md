@@ -1,3 +1,8 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
+
 # Package
 
 Créer un package Python personnalisé pour organiser les modules

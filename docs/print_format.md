@@ -1,3 +1,8 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
+
 # f-strings
 
 Méthode moderne. les autres sont deprecated ou déconseillées.

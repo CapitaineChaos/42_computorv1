@@ -1,3 +1,8 @@
+<!--
+Author : smaitre@student.42.fr 
+Type :   Doc vite fait
+-->
+
 # Print
 
 `print(*objects, sep=' ', end='\n', file=None, flush=False)`
