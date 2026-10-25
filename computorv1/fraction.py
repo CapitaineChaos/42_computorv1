@@ -22,7 +22,7 @@ def to_fraction(x: int | Fraction) -> Fraction:
         return x
     return Fraction(x)
 
-
+# On redefini un peu comme Fixed CPP 02 et Exam 05 Bigint
 # Nombre rationnel exact a/b, a et b entiers.
 class Fraction:
     def __init__(self, numerator: int, denominator: int = 1):
