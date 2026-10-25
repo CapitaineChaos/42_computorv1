@@ -19,7 +19,7 @@ from os.path import abspath, dirname, join
 ROOT = dirname(dirname(abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from tests.common import run  # noqa: E402
+from common import run  # noqa: E402
 
 COMPUTOR = join(ROOT, "computor")
 TIMEOUT = 5

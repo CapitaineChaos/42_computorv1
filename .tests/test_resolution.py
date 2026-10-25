@@ -14,9 +14,10 @@ from os.path import abspath, dirname
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
+from common import run  # noqa: E402
 from computorv1.builder import build_eq  # noqa: E402
+
 from computorv1.fraction import from_decimal  # noqa: E402
-from tests.common import run  # noqa: E402
 
 
 # Polynôme réduit donné par {degré: coefficient en texte décimal}.

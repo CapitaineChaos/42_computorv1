@@ -76,7 +76,8 @@ from os.path import abspath, dirname, join, relpath
 ROOT = dirname(dirname(abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-import tests.common  # noqa: E402, F401
+import common  # noqa: E402, F401
+
 from computorv1.errors import ComputorException  # noqa: E402
 from computorv1.parser import MAX_LEN, Parser  # noqa: E402
 

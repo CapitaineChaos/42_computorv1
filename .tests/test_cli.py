@@ -15,8 +15,9 @@ from os.path import abspath, dirname, join
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
+from common import run  # noqa: E402
+
 from computorv1.cli import main  # noqa: E402
-from tests.common import run  # noqa: E402
 
 ROOT = dirname(dirname(abspath(__file__)))
 

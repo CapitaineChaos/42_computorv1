@@ -25,7 +25,8 @@ from os.path import abspath, dirname
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
-import tests.test_saisie as saisie  # noqa: E402
+import test_saisie as saisie  # noqa: E402
+
 from computorv1.errors import ComputorException  # noqa: E402
 from computorv1.parser import MAX_LEN, Parser  # noqa: E402
 

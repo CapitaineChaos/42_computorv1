@@ -1,48 +1,26 @@
 VENV    := .venv
-PYTHON  := $(VENV)/bin/python
 RUFF    := $(VENV)/bin/ruff
-SRC     := computor computorv1 tests
+SRC     := computor computorv1
+
+export UV_PYTHON_INSTALL_DIR ?= /tmp/uv/python
+export UV_CACHE_DIR ?= /tmp/uv/cache
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run test test_solutions test_common test_display lint format clean fclean re
+.PHONY: help venv lint format clean fclean re
 
 help:
 	@grep -E '^[a-z_]+:' Makefile | cut -d: -f1 | tr '\n' ' '
 	@echo
 
-venv: $(RUFF)
+venv:
+	@$(VENV)/bin/python -c "" 2>/dev/null || rm -f $(RUFF)
+	@$(MAKE) -s --no-print-directory $(RUFF)
 
 $(RUFF): requirements.txt
 	rm -rf $(VENV)
-	python3 -m venv $(VENV)
+	uv venv --quiet --seed --python 3.14 $(VENV)
 	$(VENV)/bin/pip install -q --disable-pip-version-check -r requirements.txt
 	@touch $@
-
-ifeq (run,$(firstword $(MAKECMDGOALS)))
-ARG     := $(subst \_, ,$(firstword $(subst \ ,\_,$(MAKEOVERRIDES))))
-ARG     := $(or $(ARG),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
-.DEFAULT: ; @:
-endif
-
-run: venv
-	@$(PYTHON) ./computor $(if $(ARG),"$(ARG)") || [ $$? -eq 130 ]
-
-test: venv
-	$(PYTHON) -m unittest discover -s tests -p 'test_$(or $(T),*).py' -v
-
-test_solutions: venv
-	@$(PYTHON) -m unittest tests.test_solutions
-
-ifneq (,$(filter test_common test_display,$(firstword $(MAKECMDGOALS))))
-G       := $(or $(G),$(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)))
-.DEFAULT: ; @:
-endif
-
-test_common: venv
-	@$(PYTHON) tests/report.py common $(G)
-
-test_display: venv
-	@$(PYTHON) tests/report.py display $(G)
 
 lint: venv
 	$(RUFF) check --no-cache $(SRC)
@@ -52,7 +30,7 @@ format: venv
 	$(RUFF) format --no-cache $(SRC)
 
 clean:
-	rm -rf computorv1/__pycache__ tests/__pycache__ .ruff_cache
+	rm -rf computorv1/__pycache__ .ruff_cache
 
 fclean: clean
 	rm -rf $(VENV)
